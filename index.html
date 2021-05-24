@@ -1,27 +1,32 @@
 <html>
  <head>
-  <meta charset="utf-8">
-  <title></title>
-  <link href="./style.css" rel="stylesheet">
-  <script type="text/javascript" src="./parallax.min.js"></script>
+  <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link href="./truestyle.css" rel="stylesheet">
   <script type="text/javascript" src="./jquery.js"></script>
   <script type="text/javascript" src="./math.min.js"></script>
-  <script type="text/javascript" src="./script.js"></script>
+  <script type="text/javascript" src="./truescript.js"></script>
  </head>
  <body>
-	<div id="straigt" style="display:flex">
-		<img class="gebels" alt="Wait" src="gebels.png" >
-		<img class="mussolini" alt="Wait" src="mussolini.png">
+	<div id="lvl" style="display:grid">
+    	<div class="lvlbutton" css="background: #c1e829">5</div>
+		<div class="lvlbutton" css="background: #c1e823">4</div>
+		<div class="lvlbutton" css="background: #c1e819">3</div>
+		<div class="lvlbutton" css="background: #c1e817">2</div>
+		<div class="lvlbutton" css="background: #c1e815">1</div>
+	</div>
+	<div id="straigt" style="display:none">
+		<div class="gebels"></div>
+		<div class="mussolini"></div>
 	</div>
 	<div id="swapped" style="display:none;">
-		<img class="mussolini" alt="Wait" src="mussolini.png">
-		<img class="gebels" alt="Wait" src="gebels.png" >
+		<div class="mussolini"></div>
+		<div class="gebels"></div>
 	</div>
-	<div class="redo" id="win" style="display:none;">
-		<img alt="Wait" src="youwin.png">
+	<div class="redo" id="win" style="display:none;" draggable="false">
+		<img alt="Wait" src="./youwin.png" draggable="false">
 	</div>
-	<div class="redo" id="loose" style="display:none;">
-		<img alt="Wait" src="youloose.png">
+	<div class="redo" id="loose" style="display:none;" draggable="false">
+		<img alt="Wait" src="./youloose.png" draggable="false">
 	</div>
  </body>
 </html>
