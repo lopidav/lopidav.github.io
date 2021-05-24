@@ -1,0 +1,33 @@
+body {
+	margin: 0;
+	padding: 0;
+}
+div {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+	width: 100vw;
+    height: 100vh;
+}
+.gebels {
+	width: 50vw;
+    height: 100vh;
+    background: #c1e817;
+}
+.mussolini {
+	width: 50vw;
+    height: 100vh;
+    background: #c1e813;
+}
+.lvlbutton {
+	width: 96vw;
+    height: 9.8vh;
+    padding: 5vh 2vw;
+    margin: 0;
+    border-top: dotted white .2vh;
+}
+#lvl {
+    background: #c1e813;
+}
+element.style {
+}
