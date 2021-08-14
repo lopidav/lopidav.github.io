@@ -38,6 +38,7 @@
 	border-style: solid;
   transform: translate(0px, 0px);
 	display: inline-block;
+	position: absolute;
 }
 
 .card div{
