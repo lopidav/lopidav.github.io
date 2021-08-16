@@ -41,6 +41,18 @@
 	position: absolute;
 }
 
+.card.activated {
+	background-color: #feffe8;
+	color: #434343;
+}
+.card.putted {
+	background-color: #ebd4e8;
+	color: #434343;
+}
+.card.putted .ae{
+	color: #70a2d1;
+}
+
 .card div{
 	margin: 5%;
 }

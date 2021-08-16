@@ -200,6 +200,17 @@ interact('.card')
       }
     }
   })
+  .on('doubletap', function (event) {
+	if (event.currentTarget.classList.contains("putted")) {
+		event.currentTarget.classList.remove("putted")
+	} else if (event.currentTarget.classList.contains("activated")) {
+		event.currentTarget.classList.remove("activated")
+		event.currentTarget.classList.add("putted")
+	} else {
+		event.currentTarget.classList.add("activated")
+	}
+    event.preventDefault()
+  })
 
 function dragMoveListener (event) {
   var target = event.target
