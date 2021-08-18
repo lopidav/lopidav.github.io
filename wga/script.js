@@ -241,13 +241,13 @@ interact('.card')
     }
   })
   .on('doubletap', function (event) {
-	event.currentTarget.classList.toggle('putted')
-	event.currentTarget.classList.remove('activated')
+	event.currentTarget.classList.toggle('activated')
+	event.currentTarget.classList.remove('putted')
     event.preventDefault()
   })
   .on('hold', function (event) {
-	event.currentTarget.classList.toggle('activated')
-	event.currentTarget.classList.remove('putted')
+	event.currentTarget.classList.toggle('putted')
+	event.currentTarget.classList.remove('activated')
     event.preventDefault()
   })
 

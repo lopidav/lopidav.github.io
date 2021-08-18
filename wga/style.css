@@ -44,10 +44,12 @@
 .card.activated {
 	background-color: #feffe8;
 	color: #434343;
+	z-index:998;
 }
 .card.putted {
 	background-color: #ebd4e8;
 	color: #434343;
+	z-index:997;
 }
 .card.putted .ae{
 	color: #70a2d1;
