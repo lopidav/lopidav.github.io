@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 	  if (a[0]!='b') {
 	  	$(`#output`).html(best[a.split``.sort().join``].split``.map(x=>`<div>${x}</div>`).join`\n`);
 	  } else {
-	  	$(`#output`).html(bbest[a.split``.sort().join``].split``.map(x=>`<div>${x}</div>`).join`\n`);
+	  	$(`#output`).html(bbest[a.slice(1).split``.sort().join``].split``.map(x=>`<div>${x}</div>`).join`\n`);
 	  }
   });
 });
