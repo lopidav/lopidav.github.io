@@ -138,7 +138,8 @@ $( document ).ready(function() {
         console.log('took 7');
     })
     $("#take1").click(x=>{
-        $("#cards").prepend(card2Div(deck.shift()));
+        $("#cards").prepend(card2Div(deck[0]));
+        deck = deck.slice(0);
         $("#count").text(deck.length);
         console.log('took 1');
     })
