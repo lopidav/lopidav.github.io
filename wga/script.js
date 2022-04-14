@@ -139,7 +139,7 @@ $( document ).ready(function() {
     })
     $("#take1").click(x=>{
         $("#cards").prepend(card2Div(deck[0]));
-        deck = deck.slice(0);
+        deck = deck.slice(1);
         $("#count").text(deck.length);
         console.log('took 1');
     })
