@@ -122,7 +122,6 @@ function card2Div(card) {return $(`<div class="card"><div class="header">${card.
 function createDiceDiv(x) {return $(`<div class="dice">${x?x:(Math.random()*6|0)+1}</div>`);}
 
 
-
 $( document ).ready(function() {
     $("#count").text(deck.length);
 	$(`#resourceCount`)[0].value = window.localStorage.getItem('resourceCount') === null ? 0 : window.localStorage.getItem('resourceCount');
@@ -153,6 +152,55 @@ $( document ).ready(function() {
     $("#roll").click(x=>{
         $("#diceSlot").append(createDiceDiv((Math.random()*6|0)+1));
         console.log('rolled');
+    })
+    $("#resourcePlus").click(x=>{
+		var resCount = $("#resourceCount").val();
+		if((+resCount).toString() == resCount) {
+			resCount = (+resCount + 1).toString()
+		} else {
+			var resNum = /( *(^|\+) *)((\d|\.)+) *($)/g.exec(resCount);
+			if (resNum) {
+				resCount = [...resCount].slice(0, resNum.index + resNum[1].length).join`` + +(+resNum[3] + 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[3].length).join``;
+			} else {
+				resNum = /(( *)\-( *))((\d|\.)+) *($)/g.exec(resCount);
+				if (resNum) {
+					if (+resNum[4] > 1) {
+						resCount = [...resCount].slice(0, resNum.index + resNum[1].length).join`` + +(+resNum[4] - 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[4].length).join``;
+					} else {
+						resCount = [...resCount].slice(0, resNum.index + resNum[2].length).join`` + '+' + resNum[3] + -(+resNum[4] - 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[4].length).join``;
+					}
+				} else {
+					resCount += ' +1';
+				}
+			}
+		}
+		$("#resourceCount").val(resCount)
+        console.log('Resource count increased by 1');
+    })
+	
+    $("#resourceMinus").click(x=>{
+		var resCount = $("#resourceCount").val();
+		if((+resCount).toString() == resCount) {
+			resCount = (+resCount - 1).toString()
+		} else {
+			var resNum = /(( *)(^|\+)( *))((\d|\.)+) *($)/g.exec(resCount);
+			if (resNum) {
+				if (+resNum[5] >= 1) {
+					resCount = [...resCount].slice(0, resNum.index + resNum[1].length).join`` + +(+resNum[5] - 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[5].length).join``;
+				} else {
+					resCount = [...resCount].slice(0, resNum.index + resNum[2].length).join`` + '-' + resNum[4] + -(+resNum[5] - 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[5].length).join``;
+				}
+			} else {
+			var resNum = /( *(\-) *)((\d|\.)+) *($)/g.exec(resCount);
+				if (resNum) {
+					resCount = [...resCount].slice(0, resNum.index + resNum[1].length).join`` + +(+resNum[3] + 1).toPrecision(10) + [...resCount].slice(resNum.index + resNum[1].length + resNum[3].length).join``;
+				} else {
+					resCount += ' -1';
+				}
+			}
+		}
+		$("#resourceCount").val(resCount)
+        console.log('Resource count decreased by 1');
     })
 });
 
