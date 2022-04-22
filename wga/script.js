@@ -175,6 +175,7 @@ $( document ).ready(function() {
 			}
 		}
 		$("#resourceCount").val(resCount)
+		$(`#resourceCount`).change()
         console.log('Resource count increased by 1');
     })
 	
@@ -200,6 +201,7 @@ $( document ).ready(function() {
 			}
 		}
 		$("#resourceCount").val(resCount)
+		$(`#resourceCount`).change()
         console.log('Resource count decreased by 1');
     })
 });
