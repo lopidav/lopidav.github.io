@@ -1,0 +1,45 @@
+<html>
+ <head>
+  <meta charset="utf-8" name="viewport" content="user-scalable=no" />
+  <link href="./style.css" rel="stylesheet">
+  <script type="text/javascript" src="../peerjs.min.js"></script>
+  <script type="text/javascript" src="../jquery.js"></script>
+  <script type="text/javascript" src="../math.min.js"></script>
+  <script src="https://unpkg.com/interactjs/dist/interact.min.js"></script>
+  <script type="text/javascript" src="./script.js"></script>
+ </head>
+ <body>
+   <div id="logon">
+     <input type="text" placeholder="My name is" id="plrNameField">
+     <input type="text" placeholder="I want to play with" id="oppNameField">
+     <input type="button" value="Lesgo" id="lesgoButton">
+   </div>
+   <div id="wait">
+     Waiting for opponent to connect to you.
+     Your name is: <p class="plrName"></p>
+   </div>
+   
+   <div id="play">
+     <div id="oppSide">
+       Opp:
+       A:<p class="oppAttackAmount"></p>
+       B:<p class="oppBlockAmount"></p>
+       H:<p class="oppHealAmount"></p>
+       hp: <p class="oppHp"></p>
+     </div>
+     <div id="oppHistoryPanel"></div>
+     <div id="plrHistoryPanel"></div>
+     <div id="plrSide">
+       You:
+       
+       <button id="plrAttack">A:<p class="plrAttackAmount"></p></button>
+       <button id="plrBlock">B:<p class="plrBlockAmount"></p></button>
+       <button id="plrHeal">H:<p class="plrHealAmount"></p></button>
+       hp: <p class="plrHp"></p>
+     </div>
+   </div>
+   <div id="win">you won <input type="button" class="newGame" value="new game"></div>
+   <div id="loose">you lost <input type="button" class="newGame" value="new game"></div>
+   <div id="tie">tie <input type="button" class="newGame" value="new game"></div>
+ </body>
+</html>

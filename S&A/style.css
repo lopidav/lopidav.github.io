@@ -1,0 +1,32 @@
+.skill {
+  border-right: .1vw black solid;
+  border-left: .1vw black solid;
+  border-top: .1vh black solid;
+  border-bottom: .1vh black solid;
+  padding: 4.9vh 4.9vw;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  width: 5vw;
+  box-sizing: border-box;
+  margin: 0;
+}
+.skill.activated {
+  border-right: 1vw red solid;
+  border-left: 1vw red solid;
+  border-top: 1vh red solid;
+  border-bottom: 1vh red solid;
+  padding: 4vh 4vw;
+}
+#playersHealthBar {
+  width: 99vw;
+}
+#SkillLine {
+  margin: 0 auto;
+  width: 93vw;
+}
+#playerGUI {
+    position: fixed;
+    bottom:0;s
+}
