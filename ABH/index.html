@@ -13,6 +13,7 @@
      <input type="text" placeholder="My name is" id="plrNameField">
      <input type="text" placeholder="I want to play with" id="oppNameField">
      <input type="button" value="Lesgo" id="lesgoButton">
+     <div>Rules: you and your opponent both have 3 hp. Hp can't go higher than 3. If your hp drops to 0 - you lose. At your turn you may Attack, Block or Heal. Opponent makes their move simultaneously with you. Attack reduces hp of opponent unless they use block. Heal move restores 1 hp unless opponent uses an attack. You can use each move type only 3 times per game. If all moves are used player with a higher hp is the winner. Good luck!</div>
    </div>
    <div id="wait">
      Waiting for opponent to connect to you.
@@ -42,7 +43,7 @@
      </div>
    </div>
    <div id="win">you won <input type="button" class="newGame" value="new game"></div>
-   <div id="loose">you lost <input type="button" class="newGame" value="new game"></div>
+   <div id="lose">you lost <input type="button" class="newGame" value="new game"></div>
    <div id="tie">tie <input type="button" class="newGame" value="new game"></div>
  </body>
 </html>

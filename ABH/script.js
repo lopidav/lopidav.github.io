@@ -173,7 +173,7 @@ function hideAll() {
 	$("#wait").hide();
 	$("#play").hide();
 	$("#win").hide();
-	$("#loose").hide();
+	$("#lose").hide();
 	$("#tie").hide();
 }
 
@@ -201,9 +201,9 @@ function gotoWin() {
 	$("#win").show();
 }
 
-function gotoLoose() {
+function gotolose() {
 	hideAll();
-	$("#loose").show();
+	$("#lose").show();
 }
 
 function gotoTie() {
@@ -276,9 +276,9 @@ function calcStateFromhist() {
 	if (opp.hp == 0 && plr.hp == 0) {gotoTie();;return;}
 	if (hist.length == 9 && opp.hp == plr.hp) {gotoTie();return;}
 	if (opp.hp == 0) {gotoWin();return;}
-	if (plr.hp == 0) {gotoLoose();return;}
+	if (plr.hp == 0) {gotolose();return;}
 	if (hist.length == 9 && opp.hp < plr.hp) {gotoWin();return;}
-	if (hist.length == 9 && opp.hp > plr.hp) {gotoLoose();return;}
+	if (hist.length == 9 && opp.hp > plr.hp) {gotolose();return;}
 	refreshFieldUI();
 }
 
