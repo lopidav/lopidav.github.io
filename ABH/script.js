@@ -311,5 +311,5 @@ function showMassage(massaageTxt) {
 }
 
 function getIdFromName(name) {
-	return [...name].map(x=>x.charCodeAt(0)).join``;
+	return [...name.toLowerCase()].map(x=>x.charCodeAt(0)).join``;
 }
