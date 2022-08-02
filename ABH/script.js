@@ -7,7 +7,7 @@ var plr;
 var opp;
 var hist;
 var plrMove;
-
+var moveChannel = [];
 $( document ).ready(function() {
 	gotoLogon();
 	
@@ -16,16 +16,18 @@ $( document ).ready(function() {
 		
 		plrName = $("#plrNameField").val();
 		oppName = $("#oppNameField").val();
-		var plrId = getIdFromName(plrName);
-		var oppId = getIdFromName(oppName);
+		var plrId = plrName ? getIdFromName(plrName) : "";
+		var oppId = oppName ? getIdFromName(oppName) : "";
 		console.log(plrName, oppName, plrId, oppId);
 		
 		
 		gotoWait();
 
-
-		peer = new Peer(plrId);	
+		
+		peer = new Peer(plrId ? plrId : undefined);	
 		peer.on('open', function(id) {
+			if (plrId == '') plrId = id;
+			
 			peer.on('error', function(err) {
 				switch(err.type) {
 					case 'peer-unavailable':
@@ -42,8 +44,11 @@ $( document ).ready(function() {
 
 			peer.on('connection', function(dataConnection) {
 				console.log("connected");
-				if (dataConnection.metadata != oppId) {dataConnection.close();$("#wait").text($("#wait").text()+"\nSomebody attempted to connect");console.log('connected with bad id');}
-				else {
+				if (oppId && dataConnection.metadata != oppId) {
+					dataConnection.close();
+					$("#wait").text($("#wait").text()+"\nSomebody attempted to connect");
+					console.log('connected with wrong id');
+				} else {
 					connection = dataConnection;
 					
 					connection.on('data', function(data) {
@@ -77,7 +82,7 @@ $( document ).ready(function() {
 				}
 			});
 			setTimeout(function() {
-				if(!connection) {
+				if(!connection && oppName) {
 					connection = peer.connect(oppId,{"metadata":plrId}).on('open', function() {
 						
 						connection.on('data', function(data) {
@@ -87,8 +92,14 @@ $( document ).ready(function() {
 									gotoPlay();
 									break;
 								case "R":
-									opp.ready = true;
-									refreshFieldUI();
+									if (!plr.ready)
+									{
+										opp.ready = true;
+										refreshFieldUI();
+									} else {
+										opp.ready = plr.ready = false;
+										connection.send(plrMove);
+									}
 									break;
 								case "A":
 								case "B":
@@ -126,7 +137,7 @@ $( document ).ready(function() {
 			if (opp.ready) {
 				connection.send(plrMove);
 			} else {
-				connection.send("R");
+				if (!plr.ready) connection.send("R");
 				plr.ready = true;
 			}
 			refreshFieldUI();
@@ -138,7 +149,7 @@ $( document ).ready(function() {
 			if (opp.ready) {
 				connection.send(plrMove);
 			} else {
-				connection.send("R");
+				if (!plr.ready) connection.send("R");
 				plr.ready = true;
 			}
 			refreshFieldUI();
@@ -150,7 +161,7 @@ $( document ).ready(function() {
 			if (opp.ready) {
 				connection.send(plrMove);
 			} else {
-				connection.send("R");
+				if (!plr.ready) connection.send("R");
 				plr.ready = true;
 			}
 			refreshFieldUI();
@@ -289,14 +300,14 @@ function refreshFieldUI() {
 	$(".oppBlockAmount").text(opp.nB);
 	$(".oppHealAmount").text(opp.nH);
 	$(".oppHp").text(opp.hp);
-	$("#oppSide").css("background-color", opp.ready ? "green" : "inherit");
+	$("#oppSide").css("background-color", opp.ready ? "#9bf29c" : "inherit");
 	
 	
 	$(".plrAttackAmount").text(plr.nA);
 	$(".plrBlockAmount").text(plr.nB);
 	$(".plrHealAmount").text(plr.nH);
 	$(".plrHp").text(plr.hp);
-	$("#plrSide").css("background-color", plr.ready ? "green" : "inherit");
+	$("#plrSide").css("background-color", plr.ready ? "#9bf29c" : "inherit");
 	
 	$("#oppHistoryPanel").text(hist.map(x=>x[0]).join` `);
 	$("#plrHistoryPanel").text(hist.map(x=>x[1]).join` `+ ' ' + (plr.ready ? plrMove : ""));
@@ -311,5 +322,5 @@ function showMassage(massaageTxt) {
 }
 
 function getIdFromName(name) {
-	return [...name.toLowerCase()].map(x=>x.charCodeAt(0)).join``;
+	return "ABH-"+[...name.toLowerCase()].map(x=>x.charCodeAt(0)).join`-`;
 }
