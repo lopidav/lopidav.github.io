@@ -7,7 +7,11 @@ var plr;
 var opp;
 var hist;
 var plrMove;
-var moveChannel = [];
+var gamesHist = [];
+window.onpopstate = function(event) {
+	gotoLogon();
+}
+
 $( document ).ready(function() {
 	gotoLogon();
 	
@@ -194,6 +198,7 @@ function gotoLogon() {
 }
 	
 function gotoWait() {
+	history.pushState({'plrName': plrName, 'oppName': oppName},`true`,`?plrName=${plrName};oppName=${oppName}`);
 	$(".plrName").text(plrName);
 	hideAll()
 	$("#wait").show();
@@ -209,16 +214,19 @@ function gotoPlay() {
 
 function gotoWin() {
 	hideAll();
+	gamesHist.push`W`;
 	$("#win").show();
 }
 
-function gotolose() {
+function gotoLose() {
 	hideAll();
+	gamesHist.push`L`;
 	$("#lose").show();
 }
 
 function gotoTie() {
 	hideAll();
+	gamesHist.push`T`;
 	$("#tie").show();
 }
 
@@ -287,9 +295,9 @@ function calcStateFromhist() {
 	if (opp.hp == 0 && plr.hp == 0) {gotoTie();;return;}
 	if (hist.length == 9 && opp.hp == plr.hp) {gotoTie();return;}
 	if (opp.hp == 0) {gotoWin();return;}
-	if (plr.hp == 0) {gotolose();return;}
+	if (plr.hp == 0) {gotoLose();return;}
 	if (hist.length == 9 && opp.hp < plr.hp) {gotoWin();return;}
-	if (hist.length == 9 && opp.hp > plr.hp) {gotolose();return;}
+	if (hist.length == 9 && opp.hp > plr.hp) {gotoLose();return;}
 	refreshFieldUI();
 }
 
@@ -315,6 +323,9 @@ function refreshFieldUI() {
 	$("#plrAttack").prop('disabled', plr.nA == 0);
 	$("#plrBlock").prop('disabled', plr.nB == 0);
 	$("#plrHeal").prop('disabled', plr.nH == 0);
+	
+	
+	if(gamesHist.length) $("#gamesHistPanel").text(gamesHist.join``);//+`(${gamesHist.filter(x=>x=='W').length}/${gamesHist.filter(x=>x=='T').length}/${gamesHist.filter(x=>x=='L').length})`);
 }
 
 function showMassage(massaageTxt) {
