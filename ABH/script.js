@@ -20,6 +20,13 @@ $( document ).ready(function() {
 		
 		plrName = $("#plrNameField").val();
 		oppName = $("#oppNameField").val();
+		
+		/*switch(oppName.toLowerCase(){
+		   case 'rand':
+			   
+			   break;*/
+			
+			
 		var plrId = plrName ? getIdFromName(plrName) : "";
 		var oppId = oppName ? getIdFromName(oppName) : "";
 		console.log(plrName, oppName, plrId, oppId);
@@ -86,7 +93,7 @@ $( document ).ready(function() {
 				}
 			});
 			setTimeout(function() {
-				if(!connection && oppName) {
+				if(!connection && oppId) {
 					connection = peer.connect(oppId,{"metadata":plrId}).on('open', function() {
 						
 						connection.on('data', function(data) {
