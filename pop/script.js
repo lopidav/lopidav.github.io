@@ -89,6 +89,15 @@ function render(tFrame) {
       MyGame.ctx.stroke();
       MyGame.ctx.fill();
     }
+
+    if (MyGame.offsetX - 200*MyGame.scale < MyGame.canvas.width && MyGame.offsetX + 500*MyGame.scale > 0
+      &&  MyGame.offsetY + 60*MyGame.scale < MyGame.canvas.height && MyGame.offsetY + 100*MyGame.scale >0)
+    {
+      MyGame.ctx.font = `${MyGame.scale*37}px consolas`;
+      MyGame.ctx.fillStyle = '#101010';
+      MyGame.ctx.fillText("Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
+    }
+      
     // MyGame.ctx.strokeStyle = '#CCC';
     MyGame.ctx.strokeStyle = '#B5B5B5';
     MyGame.ctx.fillStyle = '#BBB';
@@ -106,10 +115,6 @@ function render(tFrame) {
     MyGame.ctx.stroke();
     MyGame.ctx.fill();
     
-    MyGame.ctx.font = `${MyGame.scale*37}px consolas`;
-    MyGame.ctx.fillStyle = '#101010';
-    MyGame.ctx.fillText("Simple fun, stretched to infinity", MyGame.offsetX - 220*MyGame.scale , MyGame.offsetY);
-      
     MyGame.requestRedraw = false;
   }
   
@@ -135,10 +140,22 @@ function registerPress(x,y)
     x= MyGame.hoverCellX;
     y= MyGame.hoverCellY;
   }
-  MyGame.requestRedraw = true;
+  // MyGame.requestRedraw = true;
   if (!MyGame.pressed.find(a=>a[0] == x && a[1] == y))
   {
     MyGame.pressed.push([x,y]);
+    MyGame.ctx.strokeStyle = '#B5B5B5';
+    MyGame.ctx.fillStyle = '#BBB';
+    MyGame.ctx.beginPath();
+    const currX = MyGame.offsetX + (x + (y%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2);
+    const currY = -(MyGame.shift + MyGame.space)+MyGame.offsetY + y/2 * (MyGame.shift*2 + MyGame.space*2);
+    if (currX < MyGame.canvas.width + (MyGame.radius*2+MyGame.space*2) && currX > -(MyGame.radius*2+MyGame.space*2) && currY <MyGame.canvas.height + (MyGame.shift+MyGame.space) && currY>-(MyGame.shift+MyGame.space))
+    {
+      MyGame.ctx.moveTo(currX,currY);
+      MyGame.ctx.arc(currX, currY, MyGame.radius, 0, Math.PI * 2 );
+    } 
+    MyGame.ctx.stroke();
+    MyGame.ctx.fill();
     // MyGame.specialEvents[0]();
     if (Math.random() < 0.995)
     {
@@ -149,7 +166,7 @@ function registerPress(x,y)
       if (Math.random() < 0.995) MyGame.specialPopSounds[Math.floor(Math.random()*MyGame.specialPopSounds.length)].play();
       else MyGame.specialEvents[Math.floor(Math.random()*MyGame.specialEvents.length)]();
     }
-    // MyGame.specialEvents[1]();
+    //  MyGame.specialEvents[1]();
   }
 
   // console.log(MyGame.pressed);
@@ -162,16 +179,20 @@ function setInitialState() {
   MyGame.pressed = [];
   let pressedFromStorage = window.localStorage.getItem("pressedCells");
   if (pressedFromStorage) MyGame.pressed = JSON.parse(pressedFromStorage);
+  // MyGame.pressed = [];
+  // for(let t = 0;t<1000;t++)
+  // for(let r= 0;r<1000;r++) MyGame.pressed.push([t,r]);
+
   MyGame.requestRedraw = true;
   MyGame.canvas = document.getElementById("canvas");
   MyGame.canvas.width = document.body.clientWidth;
   MyGame.canvas.height = document.body.clientHeight; 
   MyGame.ctx = MyGame.canvas.getContext("2d");
 
-  MyGame.overlayCanvas = document.getElementById("overlayCanvas");
-  MyGame.overlayCanvas.width = MyGame.canvas.width;
-  MyGame.overlayCanvas.height = MyGame.canvas.height; 
-  MyGame.overlayCtx = MyGame.overlayCanvas.getContext("2d");
+  // MyGame.overlayCanvas = document.getElementById("overlayCanvas");
+  // MyGame.overlayCanvas.width = MyGame.canvas.width;
+  // MyGame.overlayCanvas.height = MyGame.canvas.height; 
+  // MyGame.overlayCtx = MyGame.overlayCanvas.getContext("2d");
 
   MyGame.underlayCanvas = document.getElementById("underlayCanvas");
   MyGame.underlayCanvas.width = MyGame.canvas.width;
@@ -215,7 +236,7 @@ function setInitialState() {
   document.addEventListener("keydown", keyHandler, false);
 
   document.addEventListener("touchstart", touchStartHandler);
-  document.addEventListener("touchmove", touchMoveHandler);
+  // document.addEventListener("touchmove", touchMoveHandler);
 
   function touchStartHandler(e) {
     if (e.touches) {
@@ -230,16 +251,16 @@ function setInitialState() {
       e.preventDefault();
     }
   }
-  function touchMoveHandler(e) {
-    if (e.touches) {
-      MyGame.requestRedraw = true;
-      MyGame.realOffsetX +=  e.touches[0].pageX - MyGame.currentMouseX;
-      MyGame.realOffsetY +=  e.touches[0].pageY - MyGame.currentMouseY;
-      MyGame.currentMouseX = e.touches[0].pageX;
-      MyGame.currentMouseY = e.touches[0].pageY;
-      e.preventDefault();
-    }
-  }
+  // function touchMoveHandler(e) {
+  //   if (e.touches) {
+  //     MyGame.requestRedraw = true;
+  //     MyGame.realOffsetX +=  e.touches[0].pageX - MyGame.currentMouseX;
+  //     MyGame.realOffsetY +=  e.touches[0].pageY - MyGame.currentMouseY;
+  //     MyGame.currentMouseX = e.touches[0].pageX;
+  //     MyGame.currentMouseY = e.touches[0].pageY;
+  //     e.preventDefault();
+  //   }
+  // }
   MyGame.rightPressed = false;
   MyGame.leftPressed = false;
   function mouseDownHandler(event) {
@@ -303,12 +324,12 @@ function MakeSpecialEvents()
   });
   MyGame.specialEvents.push(_=>{
     console.log("special event 1");
-    MyGame.overlayCanvas.width = document.body.clientWidth;
-    MyGame.overlayCanvas.height = document.body.clientHeight; 
-    MyGame.overlayCtx.font = `${MyGame.scale*20}px serif`;
-    MyGame.overlayCtx.fillStyle = Math.random() < 0.5 ? "red" : "green";
-    MyGame.overlayCtx.fillText(Math.random() < 0.5 ? "You've won! =)" : "You've lost! >=(", MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
-    setTimeout(_=>MyGame.overlayCtx.clearRect(0,0,MyGame.overlayCanvas.width,MyGame.overlayCanvas.height), 20000);
+    // MyGame.overlayCanvas.width = document.body.clientWidth;
+    // MyGame.overlayCanvas.height = document.body.clientHeight; 
+    MyGame.ctx.font = `${MyGame.scale*20}px serif`;
+    MyGame.ctx.fillStyle = Math.random() < 0.1 ? "red" : Math.random() < 0.1 ? Math.random() > 0.1 ? "white" : "black" : "green";
+    MyGame.ctx.fillText(Math.random() < 0.9 ? "You've won! =)" : Math.random() < 0.9 ? "Don't abandon the others! >=(" : Math.random() < 0.9 ? "Extra rare pop!" : Math.random() < 0.9 ? "So the lore of the game is that it's a purgatory" : Math.random() < 0.9 ? "Actually, the game is a critique of intrinsic goals fetish" : Math.random() < 0.9 ? "So the lore is that capitalism bad" : Math.random() < 0.9 ? "So the lore is that you are immirtal, and the bobbles are days of your life":  Math.random() < 0.9 ? "I made the board hexagonal so srawings would be more creepy, it adds to the creeppeenness of infinity" : Math.random() < 0.9 ? "It's only me and you now" : Math.random() < 0.9 ? "So the lore is about a game developer who is very cool and fun to be around" : Math.random() < 0.9 ? "btw, should I make a multiplayer version of the game? I was planning to but now i'm not sure" : Math.random() < 0.9 ? "https://docs.google.com/document/d/11nNxghj4afOgYBcqoIQJ9sZU22jPpKE_RXrCMh1Q6hg/edit?usp=sharing" : Math.random() < 0.9 ? "are you free after this?" : console.image("./media/bob.gif"), MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
+    // setTimeout(_=>MyGame.ctx.clearRect(0,0,MyGame.overlayCanvas.width,MyGame.overlayCanvas.height), 20000);
   });
   MyGame.specialEvents.push(_=>{
     console.log("special event 2");
@@ -458,4 +479,19 @@ function sfc32(a, b, c, d) {// from there: https://stackoverflow.com/questions/5
     c = c + t | 0;
     return (t >>> 0) / 4294967296;
   }
+}
+console.image = (url) =>{
+  var xhr = new XMLHttpRequest();
+  xhr.open('get', url);
+  xhr.responseType = 'blob';
+  xhr.onload = function(){
+      var fr = new FileReader();
+
+      fr.onload = function(){
+          const style = `font-size: 300px; background-image: url("${this.result}"); background-size: contain; background-repeat: no-repeat;`;
+          console.log("%c     ", style);
+      };
+      fr.readAsDataURL(xhr.response); // async call
+  };
+  xhr.send();
 }
