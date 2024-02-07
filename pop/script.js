@@ -97,6 +97,15 @@ function render(tFrame) {
       MyGame.ctx.fillStyle = '#101010';
       MyGame.ctx.fillText("Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
     }
+
+    if (MyGame.offsetX + 500*MyGame.scale < MyGame.canvas.width && MyGame.offsetX + 700*MyGame.scale > 0
+      &&  MyGame.offsetY + 120*MyGame.scale < MyGame.canvas.height && MyGame.offsetY + 160*MyGame.scale >0)
+    {
+      MyGame.ctx.font = `${MyGame.scale*20}px consolas`;
+      MyGame.ctx.fillStyle = '#707070';
+      MyGame.ctx.fillText("made by lopidav", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
+    }
+      
       
     // MyGame.ctx.strokeStyle = '#CCC';
     MyGame.ctx.strokeStyle = '#B5B5B5';
@@ -199,8 +208,8 @@ function setInitialState() {
   MyGame.underlayCanvas.height = MyGame.canvas.height; 
   MyGame.underlayCtx = MyGame.underlayCanvas.getContext("2d");
 
-  MyGame.scale = 3;
-  MyGame.realOffsetX = MyGame.canvas.width/2;
+  MyGame.scale = 3 * 1800/MyGame.canvas.width;
+  MyGame.realOffsetX = MyGame.canvas.width/2-515 + 210*MyGame.scale;
   MyGame.realOffsetY = MyGame.canvas.height/2;
   document.onmousemove = handleMouseMove;
 
@@ -235,32 +244,49 @@ function setInitialState() {
   document.addEventListener("wheel", wheelHandler, false);
   document.addEventListener("keydown", keyHandler, false);
 
-  // document.addEventListener("touchstart", touchStartHandler);
-  // document.addEventListener("touchmove", touchMoveHandler);
+  document.addEventListener("touchstart", touchStartHandler, false);
+  document.addEventListener("touchmove", touchMoveHandler, false);
 
-  // function touchStartHandler(e) {
-  //   if (e.touches) {
-  //     MyGame.requestRedraw = true;
-  //     e.touches.forEach(touch => {
-  //       MyGame.currentMouseX = touch.pageX;
-  //       MyGame.currentMouseY = touch.pageY;
-  //       registerPress();
-  //     })
-  //     MyGame.currentMouseX = e.touches[0].pageX;
-  //     MyGame.currentMouseY = e.touches[0].pageY;
-  //     e.preventDefault();
-  //   }
-  // }
-  // function touchMoveHandler(e) {
-  //   if (e.touches) {
-  //     MyGame.requestRedraw = true;
-  //     MyGame.realOffsetX +=  e.touches[0].pageX - MyGame.currentMouseX;
-  //     MyGame.realOffsetY +=  e.touches[0].pageY - MyGame.currentMouseY;
-  //     MyGame.currentMouseX = e.touches[0].pageX;
-  //     MyGame.currentMouseY = e.touches[0].pageY;
-  //     e.preventDefault();
-  //   }
-  // }
+  function touchStartHandler(e) {
+    if (e.touches) {
+      // MyGame.requestRedraw = true;
+      [...e.touches].forEach(touch => {
+        MyGame.currentMouseX = touch.pageX;
+        MyGame.currentMouseY = touch.pageY;
+        registerPress();
+      })
+      MyGame.currentMouseX = e.touches[0].pageX;
+      MyGame.currentMouseY = e.touches[0].pageY;
+      // e.preventDefault();
+    }
+  }
+  function touchMoveHandler(e) {
+    if (e.touches) {
+      MyGame.requestRedraw = true;
+      MyGame.realOffsetX +=  e.touches[0].pageX - MyGame.currentMouseX;
+      MyGame.realOffsetY +=  e.touches[0].pageY - MyGame.currentMouseY;
+      MyGame.currentMouseX = e.touches[0].pageX;
+      MyGame.currentMouseY = e.touches[0].pageY;
+      // e.preventDefault();
+    }
+    if (e.touches && e.touches.length > 1) {
+      const oldDistance = MyGame.touchDistance;
+      MyGame.touchDistance = (e.touches[0].pageX-e.touches[1].pageX)**2 + (e.touches[0].pageY-e.touches[1].pageY)**2;
+      if (oldDistance && oldDistance != MyGame.touchDistance)
+      {
+        let touchCenterX = 0;
+        let touchCenterY = 0;
+        [...e.touches].forEach(t => {touchCenterX+=t.pageX;touchCenterY+=t.pageY;});
+        touchCenterX /= e.touches.length;
+        touchCenterY /= e.touches.length;
+        Zoom (oldDistance - MyGame.touchDistance,touchCenterX, touchCenterY)
+      }
+    }
+    else 
+    {
+      MyGame.touchDistance = 0;
+    }
+  }
   MyGame.rightPressed = false;
   MyGame.leftPressed = false;
   function mouseDownHandler(event) {
@@ -281,14 +307,7 @@ function setInitialState() {
     }
   }
   function wheelHandler(event) {
-    MyGame.requestRedraw = true;
-    let oldScale = MyGame.scale;
-    MyGame.scale *= 1 + event.deltaY/10000;
-    // if (MyGame.scale > 1) MyGame.scale = Math.floor(MyGame.scale*10) /10;
-    // if (MyGame.scale == oldScale) MyGame.scale = oldScale + (event.deltaY < 0 ? -0.1 : 0.1);
-    // if (MyGame.scale < 1) MyGame.scale = 1;
-    MyGame.realOffsetX += (MyGame.currentMouseX - MyGame.realOffsetX) - (MyGame.currentMouseX - MyGame.realOffsetX) / oldScale * MyGame.scale;
-    MyGame.realOffsetY += (MyGame.currentMouseY - MyGame.realOffsetY) - (MyGame.currentMouseY - MyGame.realOffsetY) / oldScale * MyGame.scale;
+    Zoom(event.deltaY, MyGame.currentMouseX, MyGame.currentMouseY);
   }
   function keyHandler(event) {
     if (event.key == "-") {
@@ -310,6 +329,15 @@ function setInitialState() {
   // track.connect(MyGame.audioContext.destination);
   
 }
+
+function Zoom(howMuch, fromPointX, fromPointY)
+{
+  MyGame.requestRedraw = true;
+  let oldScale = MyGame.scale;
+  MyGame.scale *= 1 - howMuch/10000;
+  MyGame.realOffsetX += (fromPointX - MyGame.realOffsetX) - (fromPointX - MyGame.realOffsetX) / oldScale * MyGame.scale;
+  MyGame.realOffsetY += (fromPointY - MyGame.realOffsetY) - (fromPointY - MyGame.realOffsetY) / oldScale * MyGame.scale;
+}
 function MakeSpecialEvents()
 {
   MyGame.specialEvents = [];
@@ -328,7 +356,7 @@ function MakeSpecialEvents()
     // MyGame.overlayCanvas.height = document.body.clientHeight; 
     MyGame.ctx.font = `${MyGame.scale*20}px serif`;
     MyGame.ctx.fillStyle = Math.random() < 0.1 ? "red" : Math.random() < 0.1 ? Math.random() > 0.1 ? "white" : "black" : "green";
-    MyGame.ctx.fillText(Math.random() < 0.9 ? "You've won! =)" : Math.random() < 0.9 ? "Don't abandon the others! >=(" : Math.random() < 0.9 ? "Extra rare pop!" : Math.random() < 0.9 ? "So the lore of the game is that it's a purgatory" : Math.random() < 0.9 ? "Actually, the game is a critique of intrinsic goals fetish" : Math.random() < 0.9 ? "So the lore is that capitalism bad" : Math.random() < 0.9 ? "So the lore is that you are immirtal, and the bobbles are days of your life":  Math.random() < 0.9 ? "I made the board hexagonal so srawings would be more creepy, it adds to the creeppeenness of infinity" : Math.random() < 0.9 ? "It's only me and you now" : Math.random() < 0.9 ? "So the lore is about a game developer who is very cool and fun to be around" : Math.random() < 0.9 ? "btw, should I make a multiplayer version of the game? I was planning to but now i'm not sure" : Math.random() < 0.9 ? "https://docs.google.com/document/d/11nNxghj4afOgYBcqoIQJ9sZU22jPpKE_RXrCMh1Q6hg/edit?usp=sharing" : Math.random() < 0.9 ? "are you free after this?" : console.image("./media/bob.gif"), MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
+    MyGame.ctx.fillText(Math.random() < 0.9 ? "You've won! =)" : Math.random() < 0.9 ? "Don't abandon the others! >=(" : Math.random() < 0.9 ? "Extra rare pop!" : Math.random() < 0.9 ? "So the lore of the game is that it's a purgatory" : Math.random() < 0.9 ? "Actually, the game is a critique of intrinsic goals fetish" : Math.random() < 0.9 ? "So the lore is that you loughed at gods about how pointless their life is so they put you on this infinite field where the only thing you can do is bubbles, but in reality they just have putten a hex in your eyes and the bubbles are people that you're killing" : Math.random() < 0.9 ? "So the lore is that you have super speed like flesh, and the bobbles are days of your life. Your brain is at superspeed naturaly and you need to make an effort for time to go forward, but you also have depression and no friends so days are just the same with an accasional supermarket sale, so at first you come up with little projects to do but then it becomes harder and harder to not just stop the time":  Math.random() < 0.9 ? "I made the board hexagonal so srawings would be more creepy, it adds to the creeppeenness of infinity" : Math.random() < 0.9 ? "It's only me and you now" : Math.random() < 0.9 ? "So the lore is that you're a game developer who pops and pops bubbles in hopes of going viral (wow, i've outdone myself on badness on this one (i was going for bad so that's a success) )" : Math.random() < 0.9 ? "btw, should I make a multiplayer version of the game? I was planning to but now i'm not sure" : Math.random() < 0.9 ? "https://docs.google.com/document/d/11nNxghj4afOgYBcqoIQJ9sZU22jPpKE_RXrCMh1Q6hg/edit?usp=sharing" : Math.random() < 0.9 ? "are you free after this?" : console.image("./media/bob.gif"), MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
     // setTimeout(_=>MyGame.ctx.clearRect(0,0,MyGame.overlayCanvas.width,MyGame.overlayCanvas.height), 20000);
   });
   MyGame.specialEvents.push(_=>{
