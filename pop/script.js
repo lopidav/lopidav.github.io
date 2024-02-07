@@ -95,7 +95,7 @@ function render(tFrame) {
     {
       MyGame.ctx.font = `${MyGame.scale*37}px consolas`;
       MyGame.ctx.fillStyle = '#101010';
-      MyGame.ctx.fillText("Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
+      MyGame.ctx.fillText("v1 Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
     }
 
     if (MyGame.offsetX + 500*MyGame.scale < MyGame.canvas.width && MyGame.offsetX + 700*MyGame.scale > 0
@@ -279,7 +279,7 @@ function setInitialState() {
         [...e.touches].forEach(t => {touchCenterX+=t.pageX;touchCenterY+=t.pageY;});
         touchCenterX /= e.touches.length;
         touchCenterY /= e.touches.length;
-        Zoom ((oldDistance - MyGame.touchDistance)**0.5 /10000,touchCenterX, touchCenterY)
+        Zoom ((oldDistance - MyGame.touchDistance) /10000,touchCenterX, touchCenterY)
       }
     }
     else 
