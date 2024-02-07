@@ -95,7 +95,7 @@ function render(tFrame) {
     {
       MyGame.ctx.font = `${MyGame.scale*37}px consolas`;
       MyGame.ctx.fillStyle = '#101010';
-      MyGame.ctx.fillText("v2 Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
+      MyGame.ctx.fillText("Simple fun, stretched to infinity", MyGame.offsetX - 200*MyGame.scale , MyGame.offsetY + 90*MyGame.scale);
     }
 
     if (MyGame.offsetX + 500*MyGame.scale < MyGame.canvas.width && MyGame.offsetX + 700*MyGame.scale > 0
@@ -103,7 +103,7 @@ function render(tFrame) {
     {
       MyGame.ctx.font = `${MyGame.scale*20}px consolas`;
       MyGame.ctx.fillStyle = '#707070';
-      MyGame.ctx.fillText("made by lopidav", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
+      MyGame.ctx.fillText("made by lopidav. v3", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
     }
       
       
@@ -279,7 +279,7 @@ function setInitialState() {
         [...e.touches].forEach(t => {touchCenterX+=t.pageX;touchCenterY+=t.pageY;});
         touchCenterX /= e.touches.length;
         touchCenterY /= e.touches.length;
-        Zoom ((oldDistance - MyGame.touchDistance) /1000,touchCenterX, touchCenterY)
+        Zoom ((oldDistance - MyGame.touchDistance) /100,touchCenterX, touchCenterY)
       }
     }
     else 
