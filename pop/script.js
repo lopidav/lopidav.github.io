@@ -235,7 +235,7 @@ function setInitialState() {
   document.addEventListener("wheel", wheelHandler, false);
   document.addEventListener("keydown", keyHandler, false);
 
-  document.addEventListener("touchstart", touchStartHandler);
+  // document.addEventListener("touchstart", touchStartHandler);
   // document.addEventListener("touchmove", touchMoveHandler);
 
   // function touchStartHandler(e) {
