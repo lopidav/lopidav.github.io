@@ -238,19 +238,19 @@ function setInitialState() {
   document.addEventListener("touchstart", touchStartHandler);
   // document.addEventListener("touchmove", touchMoveHandler);
 
-  function touchStartHandler(e) {
-    if (e.touches) {
-      MyGame.requestRedraw = true;
-      e.touches.forEach(touch => {
-        MyGame.currentMouseX = touch.pageX;
-        MyGame.currentMouseY = touch.pageY;
-        registerPress();
-      })
-      MyGame.currentMouseX = e.touches[0].pageX;
-      MyGame.currentMouseY = e.touches[0].pageY;
-      e.preventDefault();
-    }
-  }
+  // function touchStartHandler(e) {
+  //   if (e.touches) {
+  //     MyGame.requestRedraw = true;
+  //     e.touches.forEach(touch => {
+  //       MyGame.currentMouseX = touch.pageX;
+  //       MyGame.currentMouseY = touch.pageY;
+  //       registerPress();
+  //     })
+  //     MyGame.currentMouseX = e.touches[0].pageX;
+  //     MyGame.currentMouseY = e.touches[0].pageY;
+  //     e.preventDefault();
+  //   }
+  // }
   // function touchMoveHandler(e) {
   //   if (e.touches) {
   //     MyGame.requestRedraw = true;
