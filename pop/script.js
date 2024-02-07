@@ -103,7 +103,7 @@ function render(tFrame) {
     {
       MyGame.ctx.font = `${MyGame.scale*20}px consolas`;
       MyGame.ctx.fillStyle = '#707070';
-      MyGame.ctx.fillText("made by lopidav. v3", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
+      MyGame.ctx.fillText("made by lopidav. v4", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
     }
       
       
@@ -257,16 +257,18 @@ function setInitialState() {
       })
       MyGame.currentMouseX = e.touches[0].pageX;
       MyGame.currentMouseY = e.touches[0].pageY;
+      MyGame.currentTouchId = e.touches[0].identifier;
       // e.preventDefault();
     }
   }
   function touchMoveHandler(e) {
     if (e.touches) {
       MyGame.requestRedraw = true;
-      MyGame.realOffsetX +=  e.touches[0].pageX - MyGame.currentMouseX;
-      MyGame.realOffsetY +=  e.touches[0].pageY - MyGame.currentMouseY;
-      MyGame.currentMouseX = e.touches[0].pageX;
-      MyGame.currentMouseY = e.touches[0].pageY;
+      let currTouch = [...e.touches].find(t => t.identifier == MyGame.currentTouchId) || e.touches[0];
+      MyGame.realOffsetX +=  currTouch.pageX - MyGame.currentMouseX;
+      MyGame.realOffsetY +=  currTouch.pageY - MyGame.currentMouseY;
+      MyGame.currentMouseX = currTouch.pageX;
+      MyGame.currentMouseY = currTouch.pageY;
       // e.preventDefault();
     }
     if (e.touches && e.touches.length > 1) {
@@ -279,7 +281,7 @@ function setInitialState() {
         [...e.touches].forEach(t => {touchCenterX+=t.pageX;touchCenterY+=t.pageY;});
         touchCenterX /= e.touches.length;
         touchCenterY /= e.touches.length;
-        Zoom ((oldDistance - MyGame.touchDistance) /100,touchCenterX, touchCenterY)
+        Zoom ((oldDistance - MyGame.touchDistance) /80,touchCenterX, touchCenterY)
       }
     }
     else 
