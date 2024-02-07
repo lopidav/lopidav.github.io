@@ -279,7 +279,7 @@ function setInitialState() {
         [...e.touches].forEach(t => {touchCenterX+=t.pageX;touchCenterY+=t.pageY;});
         touchCenterX /= e.touches.length;
         touchCenterY /= e.touches.length;
-        Zoom ((oldDistance - MyGame.touchDistance)**0.5 /1000000,touchCenterX, touchCenterY)
+        Zoom ((oldDistance - MyGame.touchDistance)**0.5 /10000,touchCenterX, touchCenterY)
       }
     }
     else 
