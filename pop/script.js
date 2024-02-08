@@ -405,3 +405,4 @@ console.image = (url) =>{
   };
   xhr.send();
 }
+//https://www.youtube.com/watch?v=DKIo0MG8hOM&t=646s
