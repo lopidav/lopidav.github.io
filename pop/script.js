@@ -4,6 +4,8 @@
 document.addEventListener("DOMContentLoaded", onStart);
 function onStart(event) { 
   ;(() => {
+    console.log("v6");
+    console.image("./media/bob.gif")
     function main(tFrame) {
       MyGame.stopMain = window.requestAnimationFrame(main);
       const nextTick = MyGame.lastTick + MyGame.tickLength;
@@ -103,7 +105,7 @@ function render(tFrame) {
     {
       MyGame.ctx.font = `${MyGame.scale*20}px consolas`;
       MyGame.ctx.fillStyle = '#707070';
-      MyGame.ctx.fillText("made by lopidav. v5", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
+      MyGame.ctx.fillText("made by lopidav", MyGame.offsetX + 500*MyGame.scale , MyGame.offsetY + 140*MyGame.scale);
     }
       
       
@@ -150,21 +152,41 @@ function registerPress(x,y)
     y= MyGame.hoverCellY;
   }
   // MyGame.requestRedraw = true;
-  if (!MyGame.pressed.find(a=>a[0] == x && a[1] == y))
+  
+  let wasPoppedAlready; let poppedNeighborores = 0;
+  for(let a of MyGame.pressed)
+  {
+    if (a[0] == x && a[1] == y) {
+      wasPoppedAlready = true; break;
+    }
+    if ((a[0]==x-1 && a[1]==y)
+      || (a[0]==x+1 && a[1]==y)
+      || (a[0]==x && a[1]==y+1)
+      || (a[0]==x && a[1]==y-1)
+      || (a[0]==x+((y%2+2)%2-0.5)*2 && a[1]==y-1)
+      || (a[0]==x+((y%2+2)%2-0.5)*2 && a[1]==y+1)
+    ) poppedNeighborores++;
+  }
+  if (!wasPoppedAlready)
   {
     MyGame.pressed.push([x,y]);
-    MyGame.ctx.strokeStyle = '#B5B5B5';
-    MyGame.ctx.fillStyle = '#BBB';
-    MyGame.ctx.beginPath();
-    const currX = MyGame.offsetX + (x + (y%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2);
-    const currY = -(MyGame.shift + MyGame.space)+MyGame.offsetY + y/2 * (MyGame.shift*2 + MyGame.space*2);
-    if (currX < MyGame.canvas.width + (MyGame.radius*2+MyGame.space*2) && currX > -(MyGame.radius*2+MyGame.space*2) && currY <MyGame.canvas.height + (MyGame.shift+MyGame.space) && currY>-(MyGame.shift+MyGame.space))
-    {
-      MyGame.ctx.moveTo(currX,currY);
-      MyGame.ctx.arc(currX, currY, MyGame.radius, 0, Math.PI * 2 );
-    } 
-    MyGame.ctx.stroke();
-    MyGame.ctx.fill();
+    // console.log(poppedNeighborores);
+    if (poppedNeighborores == 6 && Math.random() < 0.9) {if (Math.random() < 0.3) {MyGame.pressed.splice(MyGame.pressed.findIndex(a=>a[0]==x&& a[1]==y-1),1);} else {MyGame.pressed.splice(MyGame.pressed.findIndex(a=>a[0]==x+((y%2+2)%2-0.5)*2 && a[1]==y-1),1);}; MyGame.requestRedraw = true;}
+    else {
+      MyGame.ctx.strokeStyle = '#B5B5B5';
+      MyGame.ctx.fillStyle = '#BBB';
+      MyGame.ctx.beginPath();
+      const currX = MyGame.offsetX + (x + (y%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2);
+      const currY = -(MyGame.shift + MyGame.space)+MyGame.offsetY + y/2 * (MyGame.shift*2 + MyGame.space*2);
+      if (currX < MyGame.canvas.width + (MyGame.radius*2+MyGame.space*2) && currX > -(MyGame.radius*2+MyGame.space*2) && currY <MyGame.canvas.height + (MyGame.shift+MyGame.space) && currY>-(MyGame.shift+MyGame.space))
+      {
+        MyGame.ctx.moveTo(currX,currY);
+        MyGame.ctx.arc(currX, currY, MyGame.radius, 0, Math.PI * 2 );
+      } 
+      MyGame.ctx.stroke();
+      MyGame.ctx.fill();
+        
+    }
     // MyGame.specialEvents[0]();
     if (Math.random() < 0.995)
     {
@@ -190,7 +212,7 @@ function setInitialState() {
   if (pressedFromStorage) MyGame.pressed = JSON.parse(pressedFromStorage);
   // MyGame.pressed = [];
   // for(let t = 0;t<1000;t++)
-  // for(let r= 0;r<1000;r++) MyGame.pressed.push([t,r]);
+  // for(let r= 0;r<100;r++) MyGame.pressed.push([t,r]);
 
   MyGame.requestRedraw = true;
   MyGame.canvas = document.getElementById("canvas");
@@ -362,7 +384,7 @@ function MakeSpecialEvents()
     // MyGame.overlayCanvas.height = document.body.clientHeight; 
     MyGame.ctx.font = `${MyGame.scale*20}px serif`;
     MyGame.ctx.fillStyle = Math.random() < 0.1 ? "red" : Math.random() < 0.1 ? Math.random() > 0.1 ? "white" : "black" : "green";
-    MyGame.ctx.fillText(Math.random() < 0.9 ? "You've won! =)" : Math.random() < 0.9 ? "Don't abandon the others! >=(" : Math.random() < 0.9 ? "Extra rare pop!" : Math.random() < 0.9 ? "So the lore of the game is that it's a purgatory" : Math.random() < 0.9 ? "Actually, the game is a critique of intrinsic goals fetish" : Math.random() < 0.9 ? "So the lore is that you loughed at gods about how pointless their life is so they put you on this infinite field where the only thing you can do is bubbles, but in reality they just have putten a hex in your eyes and the bubbles are people that you're killing" : Math.random() < 0.9 ? "So the lore is that you have super speed like flesh, and the bobbles are days of your life. Your brain is at superspeed naturaly and you need to make an effort for time to go forward, but you also have depression and no friends so days are just the same with an accasional supermarket sale, so at first you come up with little projects to do but then it becomes harder and harder to not just stop the time":  Math.random() < 0.9 ? "I made the board hexagonal so srawings would be more creepy, it adds to the creeppeenness of infinity" : Math.random() < 0.9 ? "It's only me and you now" : Math.random() < 0.9 ? "So the lore is that you're a game developer who pops and pops bubbles in hopes of going viral (wow, i've outdone myself on badness on this one (i was going for bad so that's a success) )" : Math.random() < 0.9 ? "btw, should I make a multiplayer version of the game? I was planning to but now i'm not sure" : Math.random() < 0.9 ? "https://docs.google.com/document/d/11nNxghj4afOgYBcqoIQJ9sZU22jPpKE_RXrCMh1Q6hg/edit?usp=sharing" : Math.random() < 0.9 ? "are you free after this?" : console.image("./media/bob.gif"), MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
+    MyGame.ctx.fillText(Math.random() < 0.9 ? "You've won! =)" : Math.random() < 0.9 ? "Don't abandon the others! >=(" : Math.random() < 0.9 ? "Extra rare pop!" : Math.random() < 0.9 ? "So the lore of the game is that it's a purgatory" : Math.random() < 0.9 ? "Actually, the game is a critique of intrinsic goals fetish" : Math.random() < 0.9 ? "So the lore is that you loughed at gods about how pointless their life is so they put you on this infinite field where the only thing you can do is bubbles, but in reality they just have putten a hex in your eyes and the bubbles are people that you're killing" : Math.random() < 0.9 ? "So the lore is that you have super speed like flesh, and the bobbles are days of your life. Your brain is at superspeed naturaly and you need to make an effort for time to go forward, but you also have depression and no friends so days are just the same with an accasional supermarket sale, so at first you come up with little projects to do but then it becomes harder and harder to not just stop the time":  Math.random() < 0.9 ? "I made the board hexagonal so srawings would be more creepy, it adds to the creeppeenness of infinity" : Math.random() < 0.9 ? "It's only me and you now" : Math.random() < 0.9 ? "So the lore is that you're a game developer who pops and pops bubbles in hopes of going viral (wow, i've outdone myself on badness on this one (i was going for bad so that's a success) )" : Math.random() < 0.9 ? "btw, should I make a multiplayer version of the game? I was planning to but now i'm not sure" : Math.random() < 0.9 ? "https://docs.google.com/document/d/11nNxghj4afOgYBcqoIQJ9sZU22jPpKE_RXrCMh1Q6hg/edit?usp=sharing" : Math.random() < 0.9 ? "are you free after this?" : "https://discord.gg/JWUK9zc8dZ", MyGame.offsetX + (MyGame.hoverCellX + (MyGame.hoverCellY%2+2)%2*0.5)  * (MyGame.radius*2 + MyGame.space*2), -(MyGame.shift + MyGame.space)+MyGame.offsetY + MyGame.hoverCellY/2 * (MyGame.shift*2 + MyGame.space*2));
     // setTimeout(_=>MyGame.ctx.clearRect(0,0,MyGame.overlayCanvas.width,MyGame.overlayCanvas.height), 20000);
   });
   MyGame.specialEvents.push(_=>{
