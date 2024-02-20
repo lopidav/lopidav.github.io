@@ -78,7 +78,7 @@ $( document ).ready(function() {
 		hideAll();
 		Mygame.loose.css('display', 'flex')
 		Mygame.combo = Mygame.combo < 0 ? Mygame.combo -1 : 0;
-		Mygame.score += -2 + Mygame.combo;
+		Mygame.score += -3 + Mygame.combo;
 		if (Mygame.score < 0) {Mygame.score = 5; Mygame.lvl --;Setup()}
 		console.log(Mygame.score, Mygame.lvl)
 	});
