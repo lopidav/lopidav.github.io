@@ -93,25 +93,29 @@ $( document ).ready(function() {
 		else {
 		}
 		// Mygame.loose.css('background', `rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)|0),a,a].join`,` })`)
-		Mygame.win.css('background', `rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` })`)
 	}
 	function setWrongColorForLvl(lvl)
 	{
 		if (lvl < 34) {
 			$('.right').css('background', `rgb(${Mygame.chosenColor[0]+ 30*(0.9**lvl)},${Mygame.chosenColor[1]+ 30*(0.9**lvl)},${Mygame.chosenColor[2]+ 30*(0.9**lvl)})`);
 			Mygame.difference = Math.round(30*(0.9**lvl))*3;
+			Mygame.win.css('background', `color-mix(in oklab, ${`rgb(${Mygame.chosenColor[0]+ 30*(0.9**lvl)},${Mygame.chosenColor[1]+ 30*(0.9**lvl)},${Mygame.chosenColor[2]+ 30*(0.9**lvl)})`}, ${`rgb(${Mygame.chosenColor})`}`)
 		} else if (lvl < 36) {
 			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2] + 1})`);
 			Mygame.difference = 2;
+			Mygame.win.css('background', `color-mix(in oklab, ${`rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2] + 1})`}, ${`rgb(${Mygame.chosenColor})`}`)
 		} else if (lvl < 38) {
 			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2]})`);
 			Mygame.difference = 1 + " (Green)";
+			Mygame.win.css('background', `color-mix(in oklab, ${`rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2]})`}, ${`rgb(${Mygame.chosenColor})`}`)
 		} else if (lvl < 40) {
 			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]+1})`);
 			Mygame.difference = 1 + " (Blue)";
+			Mygame.win.css('background', `color-mix(in oklab, ${`rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]+1})`}, ${`rgb(${Mygame.chosenColor})`}`)
 		} else {
 			$('.right').css('background', `rgb(${Mygame.chosenColor[0]+1},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]})`);
 			Mygame.difference = 1 + " (Red)";
+			Mygame.win.css('background', `color-mix(in oklab, ${`rgb(${Mygame.chosenColor[0]+1},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]})`}, ${`rgb(${Mygame.chosenColor})`}`)
 		}
 	}
 	$('.left').click(function(){
@@ -146,3 +150,7 @@ $( document ).ready(function() {
 		showRandom();
 	});
 });
+
+var getStyle = function(element, property) {
+    return window.getComputedStyle ? window.getComputedStyle(element, null).getPropertyValue(property) : element.style[property.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); })];
+};
