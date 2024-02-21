@@ -7,6 +7,7 @@ $( document ).ready(function() {
     Mygame.win = $('#win');
     Mygame.loose = $('#loose');
     Mygame.colorChoice = $('#colorChoice');
+    Mygame.scorePanel = $('#score');
 	Mygame.chosenColor = [];
 	Mygame.score = 5;
 	Mygame.lvl = 0;
@@ -17,6 +18,7 @@ $( document ).ready(function() {
 		Mygame.win.hide();
 		Mygame.loose.hide();
 		Mygame.colorChoice.hide();
+		Mygame.scorePanel.hide();
 	}
 
 	function showRandom() {
@@ -25,6 +27,11 @@ $( document ).ready(function() {
 		} else {
 			Mygame.swapped.css('display', 'flex')
 		}
+		Mygame.scorePanel.css('display', 'flex');
+		Mygame.scorePanel.html(`<p>LVL ${Mygame.lvl}</p>
+			<p>score ${Mygame.score} /10</p>
+			<p>combo ${Mygame.combo}</p>
+			${Mygame.lvl > 25 ? `difference: ${Mygame.difference}`: ""}`);
 	}
 
 	window.onpopstate = function(event) {
@@ -62,13 +69,59 @@ $( document ).ready(function() {
 	});
 	function Setup() {
 		$('.left').css('background', `rgb(${Mygame.chosenColor})`);
-		$('.right').css('background', `rgb(${Mygame.chosenColor[0]+ (Mygame.lvl < 34 ? 30*(0.9**Mygame.lvl) : 0)},${Mygame.chosenColor[1]+ (Mygame.lvl < 36 ? 30*(0.9**Mygame.lvl) : 0)},${Mygame.chosenColor[2]+ 30*(0.9**Mygame.lvl)})`);
+		
+		if (Mygame.lvl < 42) {
+			setWrongColorForLvl(Mygame.lvl);
+			$('.right').css("border", `none`);
+			$('.left').css("border", `none`);
+		}
+		else if (Mygame.lvl < 55) {
+			setWrongColorForLvl(Mygame.lvl - 13);
+			$('.right').css("border", `solid 1px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+			$('.left').css("border", `solid 1px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+		}
+		else if (Mygame.lvl < 68) {
+			setWrongColorForLvl(Mygame.lvl - 26);
+			$('.right').css("border", `solid 10px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+			$('.left').css("border", `solid 10px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+		}
+		else if (Mygame.lvl < 81) {
+			setWrongColorForLvl(Mygame.lvl - 39);
+			$('.right').css("border", `solid 50px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+			$('.left').css("border", `solid 50px rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+		}
+		else {
+		}
 		// Mygame.loose.css('background', `rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)|0),a,a].join`,` })`)
 		Mygame.win.css('background', `rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` })`)
+	}
+	function setWrongColorForLvl(lvl)
+	{
+		if (lvl < 34) {
+			$('.right').css('background', `rgb(${Mygame.chosenColor[0]+ 30*(0.9**lvl)},${Mygame.chosenColor[1]+ 30*(0.9**lvl)},${Mygame.chosenColor[2]+ 30*(0.9**lvl)})`);
+			Mygame.difference = Math.round(30*(0.9**lvl))*3;
+		} else if (lvl < 36) {
+			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2] + 1})`);
+			Mygame.difference = 2;
+		} else if (lvl < 38) {
+			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]+ 1},${Mygame.chosenColor[2]})`);
+			Mygame.difference = 1 + " (Green)";
+		} else if (lvl < 40) {
+			$('.right').css('background', `rgb(${Mygame.chosenColor[0]},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]+1})`);
+			Mygame.difference = 1 + " (Blue)";
+		} else {
+			$('.right').css('background', `rgb(${Mygame.chosenColor[0]+1},${Mygame.chosenColor[1]},${Mygame.chosenColor[2]})`);
+			Mygame.difference = 1 + " (Red)";
+		}
 	}
 	$('.left').click(function(){
 		hideAll();
 		Mygame.win.css('display', 'flex');
+		Mygame.scorePanel.css('display', 'flex');
+		Mygame.scorePanel.html(`<p>LVL ${Mygame.lvl+(Mygame.score+Mygame.combo +1> 10 ? " +1!" : "")}</p>
+			<p>score ${(Mygame.score+Mygame.combo +1> 10 ? "5" : Mygame.score + " +" + (Mygame.combo+1))} /10</p>
+			<p>combo ${Mygame.combo+" +1"}</p>
+			${Mygame.lvl > 25 ? `difference: ${Mygame.difference}`: ""}`);
 		Mygame.combo++;
 		Mygame.score+=Mygame.combo;
 		if (Mygame.score > 10) {Mygame.score = 5; Mygame.lvl++;Setup()}
@@ -77,8 +130,14 @@ $( document ).ready(function() {
 	$('.right').click(function(){
 		hideAll();
 		Mygame.loose.css('display', 'flex')
-		Mygame.combo = Mygame.combo < 0 ? Mygame.combo -1 : 0;
-		Mygame.score += -3 + Mygame.combo;
+		Mygame.scorePanel.css('display', 'flex');
+		Mygame.combo = 0;
+		// Mygame.combo = Mygame.combo < 0 ? Mygame.combo -1 : 0;
+		Mygame.scorePanel.html(`<p>LVL ${Mygame.lvl+(Mygame.score - 4 < 0 ? " -1!" : "")}</p>
+			<p>score ${(Mygame.score -4 < 0 ? "5" : Mygame.score + " " + -4)} /10</p>
+			<p>combo ${Mygame.combo}</p>
+			${Mygame.lvl > 25 ? `difference: ${Mygame.difference}`: ""}`);
+		Mygame.score += -4 + Mygame.combo;
 		if (Mygame.score < 0) {Mygame.score = 5; Mygame.lvl --;Setup()}
 		console.log(Mygame.score, Mygame.lvl)
 	});

@@ -1,6 +1,8 @@
 body {
 	margin: 0;
 	padding: 0;
+    align-items: center;
+    justify-content: center;
 }
 div, a {
     align-items: center;
@@ -8,6 +10,9 @@ div, a {
     justify-content: center;
 	width: 100vw;
     height: 100vh;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
 }
 .colorChoiceButton {
 	width: 32vw;
@@ -21,6 +26,54 @@ div, a {
 #colorChoice {
     background: rgb(90, 90, 90);
 
+}
+#score {
+    display: flex;
+    position: absolute;
+    align-items: flex-start;
+    justify-content: center;
+    flex-flow: column;
+    font-size: large;
+    /* margin: auto; */
+    left: 48vw;
+	width: auto;
+    height: auto;
+    color: rgb(212, 212, 212);
+    font-weight: bold;
+    text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000;  
+    font-family: Varela Round;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+#score p {
+    /* display: block; */
+    margin: 0;
+}
+#win {
+    
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+#loose {
+    
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 element.style {
 }
