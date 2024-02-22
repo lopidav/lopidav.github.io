@@ -22,7 +22,9 @@ div, a {
     /* border-top: dotted white .2vh; */
     font-size: 5vh;
     color: rgba(255, 255, 255, 0);
+    z-index: 1;
 }
+
 #colorChoice {
     background: rgb(90, 90, 90);
 
