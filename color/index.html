@@ -7,12 +7,14 @@
   <script type="text/javascript" src="./script.js"></script>
  </head>
  <body>
+	<div id="back" >
+	</div>
 	<div id="score" style="display:none">sadsadsa
 	</div>
 	<div id="colorChoice" style="display:grid">
 		<div class="colorChoiceButton" style="background: rgb(200,0,0)">red</div>
     	<div class="colorChoiceButton" style="background: rgb(0,0,200)">blue</div>
-		<div class="colorChoiceButton" style="background: rgb(0,200,0)">green</div>
+		<div class="colorChoiceButton" style="background: rgb(0,150,0)">green</div>
 		<div class="colorChoiceButton" style="background: rgb(180,180,0)">yellow</div>
 		<div class="colorChoiceButton" style="background: rgb(91,91,91);
 		background: rgb(91,91,91);
@@ -26,12 +28,12 @@
 		z-index: 0;">gray</div>
 	</div>
 	<div id="straigt" style="display:none">
-		<div class="right"></div>
-		<div class="left"></div>
+		<div class="rightBorder"><div class="right first"></div></div>
+		<div class="leftBorder"><div class="left last"></div></div>
 	</div>
 	<div id="swapped" style="display:none;">
-		<div class="left"></div>
-		<div class="right"></div>
+		<div class="leftBorder"><div class="left first"></div></div>
+		<div class="rightBorder"><div class="right last"></div></div>
 	</div>
 	<div class="redo" id="win" style="display:none;" draggable="false">
 		<img alt="Wait" src="./youwin.png" draggable="false">
