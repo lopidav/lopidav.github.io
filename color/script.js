@@ -6,11 +6,14 @@ $( document ).ready(function() {
     Mygame.swapped = $('#swapped');
     Mygame.win = $('#win');
     Mygame.loose = $('#loose');
+	Mygame.one = document.createElement("img");
     Mygame.colorChoice = $('#colorChoice');
+	Mygame.one.setAttribute("src", "./1.png");
     Mygame.scorePanel = $('#score');
 	Mygame.chosenColor = [];
 	Mygame.score = 5;
 	Mygame.lvl = 0;
+	Mygame.one.style = "max-width: 50%";
 	Mygame.combo = 0;
 	Mygame.back = $('#back');
 	function hideAll() {
@@ -83,6 +86,11 @@ $( document ).ready(function() {
 	function setBorderForLvl(lvl)
 	{
 		if (lvl < 42) {
+			if (lvl == 20 && Mygame.chosenColor[0] == 200)
+			{
+				$('.left').html(Mygame.one);
+				// $('.right').html(Mygame.one);
+			}
 			// $('.right').css("border", `none`);
 			// $('.left').css("border", `none`);
 		}
@@ -133,6 +141,15 @@ $( document ).ready(function() {
 			$('.right').css("width", "calc(10%)");
 			$('.right').css("height", "calc(1px)");
 			$('.left').css("width", "calc(10%)");
+			$('.left').css("height", "calc(1px)");
+			// $('.right').css("border", `solid 20vw rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+			// $('.left').css("border", `solid 20vw rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
+			Mygame.win.css('background', `color-mix(in oklab, rgb(${Mygame.chosenColor}), rgb(50,50,50)`)
+		}
+		else if (lvl < 133) {
+			$('.right').css("width", "calc(1px)");
+			$('.right').css("height", "calc(1px)");
+			$('.left').css("width", "calc(1px)");
 			$('.left').css("height", "calc(1px)");
 			// $('.right').css("border", `solid 20vw rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
 			// $('.left').css("border", `solid 20vw rgb(${ [(a=Mygame.chosenColor.reduce((y,x)=>y+x)/2.3|0),a,a].join`,` }`)
