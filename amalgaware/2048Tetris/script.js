@@ -19,12 +19,12 @@ function onStart()
 }
 
 function keyHandler(event) {
-  if (event.keyCode == '38' || event.keyCode == '87') {
+  if (event.keyCode == '38' || event.keyCode == '87' || event.keyCode == '90') {
       // up arrow
       event.preventDefault();
       move(0);
   }
-  else if (event.keyCode == '37'  || event.keyCode == '65') {
+  else if (event.keyCode == '37'  || event.keyCode == '65' || event.keyCode == '81') {
      // left arrow
       event.preventDefault();
       move(1);

@@ -65,8 +65,8 @@ function setInitialState() {
 
   gameState.gridWidth = 7;
   gameState.gridHeight = 3;
-  gameState.currentGame1 = "";
-  gameState.currentGame2 = "";
+  gameState.currentGame1 = localStorage.getItem("currentGame1") ?? "";
+  gameState.currentGame2 = localStorage.getItem("currentGame2") ?? "";
   gameState.selectedCoord = [1,1];
   createGrid();
   createTrackers();
@@ -85,12 +85,12 @@ function update(lastTick)
 }
 
 function keyHandler(event) {
-  if (event.keyCode == '38' || event.keyCode == '87') {
+  if (event.keyCode == '38' || event.keyCode == '87' || event.keyCode == '90') {
       // up arrow
       event.preventDefault();
       move(0);
   }
-  else if (event.keyCode == '37'  || event.keyCode == '65') {
+  else if (event.keyCode == '37'  || event.keyCode == '65' || event.keyCode == '81') {
      // left arrow
       event.preventDefault();
       move(1);
@@ -144,6 +144,8 @@ function rotateCurrentGame(num, direction) {
   
   if (num == 1) gameState.currentGame1 = gameState.baseGames[currIndex];
   else gameState.currentGame2 = gameState.baseGames[currIndex];
+  localStorage.setItem("currentGame1", gameState.currentGame1)
+  localStorage.setItem("currentGame2", gameState.currentGame2)
 }
 
 function runSelectedGame() {
