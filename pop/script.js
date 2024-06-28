@@ -42,9 +42,6 @@ function onStart(event) {
 }
 var MyGame = {};
 
-function cellFill(chunk, x, y, color)
-{
-}
 function render(tFrame) {
   MyGame.offsetX = Math.floor(MyGame.realOffsetX);
   MyGame.offsetY = Math.floor(MyGame.realOffsetY);
@@ -130,7 +127,7 @@ function render(tFrame) {
   }
   
 }
-function deturmineCurrentHovered()
+function determineCurrentHovered()
 {
   let cHoveringCellX = (MyGame.currentMouseX-MyGame.realOffsetX) / (MyGame.radius*2 + MyGame.space*2);
   let cHoveringCellY = (MyGame.currentMouseY-MyGame.realOffsetY) / (MyGame.shift*2 + MyGame.space*2)+0.5;
@@ -147,7 +144,7 @@ function registerPress(x,y)
 {
   if (!x && !y)
   {
-    deturmineCurrentHovered();
+    determineCurrentHovered();
     x= MyGame.hoverCellX;
     y= MyGame.hoverCellY;
   }
@@ -204,7 +201,7 @@ function registerPress(x,y)
   if (!MyGame.dontUpdateStorage) window.localStorage.setItem("pressedCells", JSON.stringify(MyGame.pressed));
 }
 function update(DOMHighResTimeStamp) {
-  // deturmineCurrentHovered();  
+  // determineCurrentHovered();  
 }
 function setInitialState() {
   MyGame.pressed = [];
