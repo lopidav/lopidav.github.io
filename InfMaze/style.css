@@ -1,0 +1,21 @@
+body {
+overflow-y: hidden; /* Hide vertical scrollbar */
+overflow-x: hidden; /* Hide horizontal scrollbar */
+font-family: "Lucida Console", sans-serif;
+}
+html, body {
+    margin: 0;
+    height: 100%;
+}
+#canvas {
+    z-index: 2;
+}
+#overlayCanvas {
+    z-index: 3;
+}
+#underlayCanvas {
+    z-index: 1;
+}
+canvas {
+  position: absolute;
+}
