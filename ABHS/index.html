@@ -1,0 +1,69 @@
+<html>
+ <head>
+  <meta charset="utf-8" name="viewport" content="width=50, initial-scale=2, user-scalable=no" />
+  <link href="./style.css" rel="stylesheet">
+  <script type="text/javascript" src="../peerjs.min.js"></script>
+  <script type="text/javascript" src="../jquery.js"></script>
+  <script type="text/javascript" src="../math.min.js"></script>
+  <script src="https://unpkg.com/interactjs/dist/interact.min.js"></script>
+  <script type="text/javascript" src="./script.js"></script>
+ </head>
+ <body>
+  <div id ="Back">
+    <div id="Table"><div id="TableShine"></div></div>
+    
+    <div id ="PlayArea">
+
+      <div id="OppHealthBox" class="healthBox">❤❤♡</div>
+      <div id ="OppAvatar"></div>
+      <div id ="OppName">name</div>
+
+      <div id ="PlayedCardsArea">
+        <div id = "OppPlayedCards" class ="PlayedCardsRow">
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+        </div>
+        <div id = "PlayedCards" class ="PlayedCardsRow">
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+          <div class="cardslot"><div class="card" ></div></div>
+        </div>
+
+      </div>
+      <div id="HealthBox" class="healthBox">❤❤♡</div>
+      <button class="cardsStack" id="AttackCards" onclick="Attack()">
+        <div class="cardslot"><div class="card attackCard" ></div></div>
+        <div class="cardslot"><div class="card attackCard" ></div></div>
+        <div class="cardslot"><div class="card attackCard" ></div></div>
+      </button>
+      <button class="cardsStack" id="BlockCards" onclick="Block()">
+        <div class="cardslot"><div class="card blockCard" ></div></div>
+        <div class="cardslot"><div class="card blockCard" ></div></div>
+        <div class="cardslot"><div class="card blockCard" ></div></div>
+      </button>
+      <button class="cardsStack" id="HealCards" onclick="Heal()">
+        <div class="cardslot"><div class="card healCard" ></div></div>
+        <div class="cardslot"><div class="card healCard" ></div></div>
+        <div class="cardslot"><div class="card healCard" ></div></div>
+      </button>
+    </div>
+  </div>
+  <div id ="EndOfGameScreen">
+    <div id="GameResult">You've Won!</div>
+    <button onclick="newGame()">next</button>
+  </div>
+ </body>
+</html>
