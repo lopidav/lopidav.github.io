@@ -746,48 +746,49 @@ function fillChunk(chunk, method) {
     {
       let half = Math.floor(MyGame.chunkSize/2)
       let rand = sfc32(chunk.coordinates[0],chunk.coordinates[1], 0, 0);
-      if ((metaY==0 && metaX ==0))
-      {
-        let sortFunction;
-        let dontPrefill = true;
-        let dirX = 1, dirY = 1;
-        sortFunction = (cX,cY,pX,pY)=>(x,y)=> -((x[0] - cX) - dirX) - ((x[1] - cY) - dirY) + ((y[0] - cX - dirX) + (y[1] - cY) - dirY ) + rand()*0.0001-0.00005;
-        for(i = 0; i <= MyGame.chunkSize; i++)
-        {
-          chunk[i]=[];
-          for(j = 0; j <= MyGame.chunkSize; j++) chunk[i][j]= -1;//i%2 || j%2 ? -1 : 0;
-        }
-        half += half%2;
-        let waitList = [[half,half,half,half]];
-        let cX,cY,pX,pY;
-        let candidates = [];
-        while(waitList.length)
-        {
-          [cY,cX,pY,pX] = waitList.pop();
-          if (cX<0 || cX>MyGame.chunkSize || cY<0 || cY>MyGame.chunkSize) continue;
-          if (dontPrefill && chunk[cY][cX] == 0) continue;
-          chunk[cY][cX] = 0;
-          dirX = Math.clamp(dirX + rand()*0.01-0.005, -1, 1); dirY = Math.clamp(dirY+rand()*0.01-0.005, -1, 1);
-          candidates = [[cY-2,cX,cY,cX],[cY+2,cX,cY,cX],[cY,cX-2,cY,cX],[cY,cX+2,cY,cX]].filter(c=>chunk[c[0]] && c[1]>=0 && c[1]<=MyGame.chunkSize && chunk[c[0]][c[1]]!=0).sort(sortFunction(cX,cY,pX,pY));
-          // console.log(candidates.length);
-          if (!dontPrefill) {
-            candidates.forEach(c=>{chunk[(c[0]+cY)/2][(c[1]+cX)/2]=0;chunk[c[0]][c[1]]=0;});
-          } else {
-            chunk[(pY+cY)/2][(pX+cX)/2]=0;
-          }
-          if(candidates.length) waitList = waitList.concat(candidates);
-        }
-        chunk[half-3][half] = 0;
-        chunk[half+3][half] = 0;
-        chunk[half][half-3] = 0;
-        chunk[half][half+3] = 0;
-        chunk.pop();
-        for(i = 0; i < MyGame.chunkSize; i++)
-        {
-          chunk[i].pop();
-        }
-      }
-      else if(MyGame.metaChunks[metametaY][metametaX][metaY%MyGame.metametachunkSize][metaX%MyGame.metametachunkSize] <= -8)
+      // if ((metaY==0 && metaX ==0))
+      // {
+      //   let sortFunction;
+      //   let dontPrefill = true;
+      //   let dirX = 1, dirY = 1;
+      //   sortFunction = (cX,cY,pX,pY)=>(x,y)=> -((x[0] - cX) - dirX) - ((x[1] - cY) - dirY) + ((y[0] - cX - dirX) + (y[1] - cY) - dirY ) + rand()*0.0001-0.00005;
+      //   for(i = 0; i <= MyGame.chunkSize; i++)
+      //   {
+      //     chunk[i]=[];
+      //     for(j = 0; j <= MyGame.chunkSize; j++) chunk[i][j]= -1;//i%2 || j%2 ? -1 : 0;
+      //   }
+      //   half += half%2;
+      //   let waitList = [[half,half,half,half]];
+      //   let cX,cY,pX,pY;
+      //   let candidates = [];
+      //   while(waitList.length)
+      //   {
+      //     [cY,cX,pY,pX] = waitList.pop();
+      //     if (cX<0 || cX>MyGame.chunkSize || cY<0 || cY>MyGame.chunkSize) continue;
+      //     if (dontPrefill && chunk[cY][cX] == 0) continue;
+      //     chunk[cY][cX] = 0;
+      //     dirX = Math.clamp(dirX + rand()*0.01-0.005, -1, 1); dirY = Math.clamp(dirY+rand()*0.01-0.005, -1, 1);
+      //     candidates = [[cY-2,cX,cY,cX],[cY+2,cX,cY,cX],[cY,cX-2,cY,cX],[cY,cX+2,cY,cX]].filter(c=>chunk[c[0]] && c[1]>=0 && c[1]<=MyGame.chunkSize && chunk[c[0]][c[1]]!=0).sort(sortFunction(cX,cY,pX,pY));
+      //     // console.log(candidates.length);
+      //     if (!dontPrefill) {
+      //       candidates.forEach(c=>{chunk[(c[0]+cY)/2][(c[1]+cX)/2]=0;chunk[c[0]][c[1]]=0;});
+      //     } else {
+      //       chunk[(pY+cY)/2][(pX+cX)/2]=0;
+      //     }
+      //     if(candidates.length) waitList = waitList.concat(candidates);
+      //   }
+      //   chunk[half-3][half] = 0;
+      //   chunk[half+3][half] = 0;
+      //   chunk[half][half-3] = 0;
+      //   chunk[half][half+3] = 0;
+      //   chunk.pop();
+      //   for(i = 0; i < MyGame.chunkSize; i++)
+      //   {
+      //     chunk[i].pop();
+      //   }
+      // }
+      // else
+      if(MyGame.metaChunks[metametaY][metametaX][metaY%MyGame.metametachunkSize][metaX%MyGame.metametachunkSize] <= -8 || (metaY==0 && metaX ==0))
       {
         for(i = 0; i < MyGame.chunkSize; i++)
         {
@@ -795,7 +796,7 @@ function fillChunk(chunk, method) {
           for(j = 0; j < MyGame.chunkSize; j++) chunk[i][j]= +(i%2 ? j%2 ? -1 : (rand()<0.5 ? -1 : 0) : j%2 ? rand()<0.4 ? -1 : 0 : 0);
         }
       }
-      else if (MyGame.metaChunks[metametaY][metametaX][metaY%MyGame.metametachunkSize][metaX%MyGame.metametachunkSize] <= -6)
+      else if (MyGame.metaChunks[metametaY][metametaX][metaY%MyGame.metametachunkSize][metaX%MyGame.metametachunkSize] <= -6 )
       {
         for(i = 0; i < MyGame.chunkSize; i++)
         {
@@ -831,7 +832,6 @@ function fillChunk(chunk, method) {
             break;
           default: {
             sortFunction = (cX,cY)=>(x,y)=>rand()*2-1;
-            dontPrefill = true;
           }
 
         }
