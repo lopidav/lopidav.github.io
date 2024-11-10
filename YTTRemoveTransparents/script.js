@@ -13,7 +13,7 @@ $( document ).ready(()=>{$("#theButton").on('click', function(e){
 
   var spans = [];
   expr = /<p .*?\/p>/gi;
-  while (match = expr.exec(oText)) spans.push(match);
+  while (match = expr.exec(oText)) spans.push(match[0]);
   console.log(transPenIds);
   if (transPenIds.length == 0) return;
   transPenIds = transPenIds.join(`|`);
@@ -21,7 +21,9 @@ $( document ).ready(()=>{$("#theButton").on('click', function(e){
   console.log(spans);
   if (spans.length == 0) return;
   
-  oText=oText.replace(new RegExp(spans.join(`|`),"gi"), "");
+  for(var j = 0; j < spans.length; j++ ) {
+    oText = oText.replaceAll(spans[j], "");
+  }
   console.log(oText);
   $("#outputCode").val(oText);
 });})
