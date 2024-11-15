@@ -12,12 +12,12 @@ $( document ).ready(()=>{$("#theButton").on('click', function(e){
   transPenIds = transPenIds.map(x=>x[1]);
 
   var spans = [];
-  expr = /<p .*?\/p>/gi;
+  expr = /<p (.|\n)*?\/p>/gi;
   while (match = expr.exec(oText)) spans.push(match[0]);
   console.log(transPenIds);
   if (transPenIds.length == 0) return;
   transPenIds = transPenIds.join(`|`);
-  spans = spans.filter(x=>new RegExp(`<s p="(${transPenIds})">`,"i").test(x));
+  spans = spans.filter(x=>new RegExp(`<s p="(${transPenIds})">`,"gi").test(x));
   console.log(spans);
   if (spans.length == 0) return;
   
