@@ -14,7 +14,7 @@ class Record {
 
 httpGetAsync(pubTsvURL, responce => {
   leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(x[0],x[1],x[2],x[3],x[4]));
-  leaderboards.sortLeaderboardsBy();
+  sortLeaderboardsBy();
   console.log(leaderboards);
   displayLeaderboards()
 });
@@ -23,7 +23,7 @@ function sortLeaderboardsBy(byWhat) {
   switch(byWhat){
     case "date":
     default:
-      leaderboards.sort((x,y)=>x.date-y.date)
+      leaderboards.sort((x,y)=>y.date-x.date)
       break;
   }
 }
@@ -31,10 +31,10 @@ function sortLeaderboardsBy(byWhat) {
 function displayLeaderboards() {
   document.getElementById("mainTable").innerHTML = leaderboards.map(x=>`
   <tr>
-    <th>${x.date.toLocaleString()}</th>
-    <th>${x.steamName}</th>
-    <th>${x.map}</th>
-    <th>${x.time}</th>
+    <td>${x.date.toLocaleString()}</td>
+    <td>${x.steamName}</td>
+    <td>${x.map}</td>
+    <td>${x.time}</td>
   </tr>`).join`
 `;
 }
