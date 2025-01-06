@@ -3,7 +3,7 @@ var pubTsvURL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vTwPlhqxhy5MsAA
 var leaderboards = [];
 class Record {
   constructor(dateString, steamId, steamName, map, timeString) {
-    this.date = Date.parse(dateString);
+    this.date = new Date(dateString);
     this.steamId = steamId;
     this.steamName = steamName;
     this.map = map;
@@ -18,12 +18,13 @@ httpGetAsync(pubTsvURL, responce => {
 });
 function displayLeaderboards() {
   document.getElementById("mainTable").innerHTML = leaderboards.map(x=>`
-    <tr>
-     <th>${x.date.toLocaleString()}</th>
-     <th>${x.steamName}</th>
-     <th>${x.map}</th>
-     <th>${x.time}</th>
-    </tr>`);
+  <tr>
+    <th>${x.date.toLocaleString()}</th>
+    <th>${x.steamName}</th>
+    <th>${x.map}</th>
+    <th>${x.time}</th>
+  </tr>`).join`
+`;
 }
 function onStart()
 {
