@@ -11,7 +11,7 @@ function onStart()
 function httpGetAsync(theUrl, callback) //https://stackoverflow.com/questions/247483/http-get-request-in-javascript
 {
     var xmlHttp = new XMLHttpRequest();
-    xmlHttp.setRequestHeader("Origin", )
+    // xmlHttp.setRequestHeader("Origin", )
     xmlHttp.onreadystatechange = function() { 
         if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
             callback(xmlHttp.responseText);
