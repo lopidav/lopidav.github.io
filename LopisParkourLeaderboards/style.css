@@ -35,4 +35,4 @@ th, td {
     text-align: left;
     vertical-align: bottom;
 }
-tr:hover {background-color:#4e4e4e; color: aliceblue;}
+tr:hover {background-color:#4e4e4e !important; color: aliceblue !important;}
