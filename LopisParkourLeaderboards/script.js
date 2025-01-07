@@ -7,9 +7,40 @@ class Record {
     this.date = new Date(dateString);
     this.steamId = steamId;
     this.steamName = steamName;
-    this.map = map;
+
+    this.mapId = map;
     this.time = +timeString.replace(/[.,]/g,"");
   }
+  get mapNumber() {
+    if (typeof this._mapNumber !== 'undefined') return this._mapNumber;
+    this._mapNumber = +/\\prk_(.*?)_/gi.exec()[1];
+    if (isNaN(this._mapNumber)) this._mapNumber = Infinity;
+    return this._mapNumber;
+  }
+  get mapName() {
+    if (typeof this._mapName !== 'undefined') return this._mapName;
+    this.processMapName();
+    return this._mapName;
+  }
+  get packAuthor() {
+    if (typeof this._packAuthor !== 'undefined') return this._packAuthor;
+    this.processMapName();
+    return this._packAuthor;
+  }
+  get packName() {
+    if (typeof this._packName !== 'undefined') return this._packName;
+    this.processMapName();
+    return this._packName;
+  }
+  processMapName() {
+    if (typeof this.mapId === 'undefined') return;
+    let mapAll = this._mapId.split`\\`;
+    if (!mapAll[1]) {this._mapNumber = Infinity;this._mapName = this.mapId;this._packAuthor="";this._packName="";}
+    [this._packAuthor, this._packName]= mapAll[0].split`_`;
+    if (!this._packName) this._packName = mapAll[0];
+    this._packName = this._packName.replace(/_/gi, " ");
+    this._mapName = mapAll[1].replace(/(^prk_|\.map$)/gmi,"").replace(/_/gi," ");
+  } 
 };
 
 httpGetAsync(pubTsvURL, responce => {
@@ -23,11 +54,11 @@ httpGetAsync(pubTsvURL, responce => {
 function processPlacing()
 {
   placementSortedLeaderboards = leaderboards.slice(0);
-  placementSortedLeaderboards.sort((a,b)=>a.time-b.time).sort((a,b)=>a.map == b.map ? 0 : a.map > b.map ? 1 : -1)
-  var i = 1;
-  var prevMap = "";
+  placementSortedLeaderboards.sort((a,b)=>a.time-b.time).sort((a,b)=>a.mapId == b.mapId ? 0 : a.mapId > b.mapId ? 1 : -1)
+  let i = 1;
+  let prevMap = "";
   placementSortedLeaderboards.forEach(x => {
-    if (x.map != prevMap) {i = 1;prevMap = x.map;};
+    if (x.mapId != prevMap) {i = 1;prevMap = x.mapId;};
     x.placement = i;
     i++;
   })
@@ -45,11 +76,11 @@ function sortLeaderboardsBy(byWhat) {
 function displayLeaderboards() {
   document.getElementById("mainTable").innerHTML = leaderboards.map(x=>`
   <tr style="background-color:${x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`};" >
-    <td>${x.date.toLocaleString()}</td>
-    <td>${x.steamName}</td>
-    <td>${x.map}</td>
-    <td>${x.time}</td>
+    <td>${x.mapName}</td>
     <td>${x.placement}</td>
+    <td>${x.steamName}</td>
+    <td>${x.time}</td>
+    <td>${x.date.toLocaleString()}</td>
   </tr>`).join`
 `;
 }
