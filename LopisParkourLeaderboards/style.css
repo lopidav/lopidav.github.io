@@ -10,20 +10,6 @@ html, body {
     justify-content: center;
     align-items: center;
 }
-.row {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-}
-
-.row div {
-min-height: 1px;
-display: inline-block;
-min-width: 1px;
-border: 1px solid #4e4e4e;
-flex-grow: 1;
-aspect-ratio: 1;
-}
 .row div[state="0"] {
 background-color: #2c2c2c;
 }
@@ -36,3 +22,13 @@ th, td {
     vertical-align: bottom;
 }
 tr:hover {background-color:#4e4e4e !important; color: aliceblue !important;}
+button {
+    user-select: text;
+    cursor: pointer;
+    touch-action: manipulation;
+    display: block; 
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+}

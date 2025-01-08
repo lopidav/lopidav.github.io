@@ -9,7 +9,13 @@ class Record {
     this.steamName = steamName;
 
     this.mapId = map;
-    this.time = +timeString.replace(/[.,]/g,"");
+    this.timeMs = +timeString.replace(/[.,]/g,"");
+  }
+  get time() {
+    let temp = new Date(0);
+    temp.setMilliseconds(this.timeMs);
+    if (this.timeMs > 60*60*1000) return temp.toISOString().substring(11, 23);
+    return temp.toISOString().substring(14, 23);
   }
   get mapNumber() {
     if (typeof this._mapNumber !== 'undefined') return this._mapNumber;
@@ -72,14 +78,13 @@ function sortLeaderboardsBy(byWhat) {
       break;
   }
 }
-
 function displayLeaderboards() {
   document.getElementById("mainTable").innerHTML = leaderboards.map(x=>`
   <tr style="background-color:${x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`};" >
-    <td>${x.mapName}</td>
     <td>${x.placement}</td>
-    <td>${x.steamName}</td>
+    <td><button>${x.steamName}</button></td>
     <td>${x.time}</td>
+    <td><button>${x.mapName}</button></td>
     <td>${x.date.toLocaleString()}</td>
   </tr>`).join`
 `;
