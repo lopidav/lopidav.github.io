@@ -78,10 +78,8 @@ function textCompare(a,b) {
 }
 function sortLeaderboardsBy(byWhat) {
   if (byWhat) {
-    const url = new URL(location);
     params.set("filterBy",  byWhat);
-    url.searchParams = params;
-    history.pushState({params:params.toString()},"true", url);
+    history.pushState({params:params.toString()},"true", "?" + params.toString());
   } else if (params.get("filterBy")) byWhat = params.get("filterBy");
   switch(byWhat){
     case "steamName":
@@ -111,11 +109,9 @@ function sortLeaderboardsBy(byWhat) {
 }
 function filterLeaderboardsByOneField(byWhat, value) {
   leaderboards = fullLeaderboards.slice(0);
-  const url = new URL(location);
   params = new URLSearchParams();
   params.set(byWhat, value);
-  url.searchParams = params;
-  history.pushState({params:params.toString()},"true", url);
+  history.pushState({params:params.toString()},"true", "?" +params.toString());
   filterLeaderboards();
   displayLeaderboards();
 }
@@ -186,8 +182,8 @@ function httpGetAsync(theUrl, callback) //https://stackoverflow.com/questions/24
 
 window.onpopstate = function(event) {
   leaderboards = fullLeaderboards.slice(0);
-  if (state) {
-    params = new URLSearchParams(state.params);
+  if (event.state) {
+    params = new URLSearchParams(event.state.params);
   }
   else {
     params = new URLSearchParams(window.location.search);
