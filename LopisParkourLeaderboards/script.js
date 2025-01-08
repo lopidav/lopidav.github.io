@@ -62,7 +62,7 @@ httpGetAsync(pubTsvURL, responce => {
 function processPlacing()
 {
   placementSortedLeaderboards = leaderboards.slice(0);
-  placementSortedLeaderboards.sort((a,b)=>a.time-b.time).sort((a,b)=>a.mapId == b.mapId ? 0 : a.mapId > b.mapId ? 1 : -1)
+  placementSortedLeaderboards.sort((a,b)=>a.timeMs-b.timeMs).sort((a,b)=>a.mapId == b.mapId ? 0 : a.mapId > b.mapId ? 1 : -1)
   let i = 1;
   let prevMap = "";
   placementSortedLeaderboards.forEach(x => {
@@ -98,7 +98,7 @@ function sortLeaderboardsBy(byWhat) {
         .sort((a,b)=>textCompare(a.packAuthor,b.packAuthor))
       break;
     case "time":
-      leaderboards.sort((a,b)=>a.time-b.time);
+      leaderboards.sort((a,b)=>a.timeMs-b.timeMs);
       break;
     case "date":
     default:
