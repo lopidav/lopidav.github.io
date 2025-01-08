@@ -109,8 +109,10 @@ function sortLeaderboardsBy(byWhat) {
       break;
   }
 }
-function filterLeaderboardsBy(byWhat, value) {
+function filterLeaderboardsByOneField(byWhat, value) {
+  leaderboards = fullLeaderboards.slice(0);
   const url = new URL(location);
+  params = new URLSearchParams();
   params.set(byWhat, value);
   url.searchParams = params;
   history.pushState({params:params.toString()},"true", url);
@@ -145,7 +147,7 @@ function displayLeaderboards() {
     let steamNameButton = document.createElement('button');
     steamNameButton.innerText = x.steamName;
     steamNameButton.addEventListener('click', function(){
-      filterLeaderboardsBy("steamId", x.steamId);
+      filterLeaderboardsByOneField("steamId", x.steamId);
     });
 
     let temp = document.createElement('td');
@@ -157,7 +159,7 @@ function displayLeaderboards() {
     let mapNameButton = document.createElement('button');
     mapNameButton.innerText = x.mapName;
     mapNameButton.addEventListener('click', function(){
-      filterLeaderboardsBy("mapId", x.mapId);
+      filterLeaderboardsByOneField("mapId", x.mapId);
     });
 
     temp = document.createElement('td');
@@ -166,15 +168,6 @@ function displayLeaderboards() {
     
     row.appendChild(document.createElement('td')).innerText = x.date.toLocaleString();
   });
-//   `
-//   <tr style="background-color:${x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`};" >
-//     <td>${x.placement}</td>
-//     <td><button onclick="filterLeaderboardsBy('steamId',${"`"+x.steamId+"`"})">${x.steamName}</button></td>
-//     <td>${x.time}</td>
-//     <td><button onclick="filterLeaderboardsBy('mapId',${"`"+x.mapId.replace(/\\/g,"\\\\")+"`"})">${x.mapName}</button></td>
-//     <td>${x.date.toLocaleString()}</td>
-//   </tr>`).join`
-// `;
 }
 function onStart() {
   displayLeaderboards();
