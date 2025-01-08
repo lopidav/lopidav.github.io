@@ -52,6 +52,7 @@ class Record {
 
 httpGetAsync(pubTsvURL, responce => {
   leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(...x));
+  removeDuplicats();
   processPlacing();
   sortLeaderboardsBy();
   fullLeaderboards = leaderboards.slice(0);
@@ -59,6 +60,11 @@ httpGetAsync(pubTsvURL, responce => {
   filterLeaderboards()
   displayLeaderboards()
 });
+function removeDuplicats() {
+  var seen = {};
+  leaderboards.sort((a,b)=>a.timeMs-b.timeMs);
+  leaderboards =  leaderboards.filter(x =>seen.hasOwnProperty(x.mapId + x.steamId) ? false : (seen[x.mapId + x.steamId] = true));
+}
 
 function processPlacing()
 {
@@ -78,9 +84,9 @@ function textCompare(a,b) {
 }
 function sortLeaderboardsBy(byWhat) {
   if (byWhat) {
-    params.set("filterBy",  byWhat);
+    params.set("sortBy",  byWhat);
     history.pushState({params:params.toString()},"true", "?" + params.toString());
-  } else if (params.get("filterBy")) byWhat = params.get("filterBy");
+  } else if (params.get("sortBy")) byWhat = params.get("sortBy");
   switch(byWhat){
     case "steamName":
       leaderboards.sort((a,b)=>textCompare(a.steamName,b.steamName));
@@ -103,8 +109,7 @@ function sortLeaderboardsBy(byWhat) {
       break;
     case "date":
     default:
-      let filterParam = params.get("filterBy");
-      if (filterParam == "mapId") leaderboards.sort((x,y)=>y.timeMs-x.timeMs);
+      if (params.get("mapId")) leaderboards.sort((x,y)=>y.timeMs-x.timeMs);
       else leaderboards.sort((x,y)=>y.date-x.date);
       break;
   }
