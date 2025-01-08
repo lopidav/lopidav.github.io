@@ -108,7 +108,7 @@ function sortLeaderboardsBy(byWhat) {
 }
 function filterLeaderboardsBy(byWhat, value) {
   params.set(byWhat, value);
-  history.pushState({params:params},"true", params.toString());
+  history.pushState({params:params.toString()},"true", params.toString());
   filterLeaderboards();
   displayLeaderboards();
 }
