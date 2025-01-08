@@ -3,7 +3,7 @@ var pubTsvURL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vTwPlhqxhy5MsAA
 var leaderboards = [];
 var fullLeaderboards = [];
 var placementSortedLeaderboards = [];
-var params = new URLSearchParams();
+var params = new URLSearchParams(window.location.search);
 class Record {
   constructor(dateString, steamId, steamName, map, timeString, realDateString) {
     this.date = new Date(!realDateString ? dateString : realDateString);
@@ -78,7 +78,7 @@ function textCompare(a,b) {
 function sortLeaderboardsBy(byWhat) {
   if (byWhat) {
     params.set("filterBy",  byWhat);
-    history.pushState({params:params},"true", params.toString());
+    history.pushState({params:params.toString()},"true", params.toString());
   } else if (params.get("filterBy")) byWhat = params.get("filterBy");
   switch(byWhat){
     case "steamName":
@@ -188,7 +188,7 @@ function httpGetAsync(theUrl, callback) //https://stackoverflow.com/questions/24
 window.onpopstate = function(event) {
   leaderboards = fullLeaderboards.slice(0);
   if (state) {
-    params = state.params;
+    params = new URLSearchParams(state.params);
     sortLeaderboardsBy();
     filterLeaderboards();
   }
