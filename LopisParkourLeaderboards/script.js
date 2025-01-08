@@ -120,6 +120,7 @@ function filterLeaderboardsByOneField(byWhat, value) {
   params.set(byWhat, value);
   history.pushState({params:params.toString()},"true", "?" +params.toString());
   filterLeaderboards();
+  sortLeaderboardsBy();
   displayLeaderboards();
 }
 function filterLeaderboards() {
