@@ -109,7 +109,7 @@ function sortLeaderboardsBy(byWhat) {
       break;
     case "date":
     default:
-      if (params.get("mapId")) leaderboards.sort((x,y)=>y.timeMs-x.timeMs);
+      if (params.get("mapId")) leaderboards.sort((a,b)=>a.timeMs-b.timeMs);
       else leaderboards.sort((x,y)=>y.date-x.date);
       break;
   }
