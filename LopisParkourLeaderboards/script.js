@@ -56,6 +56,7 @@ httpGetAsync(pubTsvURL, responce => {
   sortLeaderboardsBy();
   fullLeaderboards = leaderboards.slice(0);
   // console.log(leaderboards);
+  filterLeaderboards()
   displayLeaderboards()
 });
 
@@ -78,7 +79,8 @@ function textCompare(a,b) {
 function sortLeaderboardsBy(byWhat) {
   if (byWhat) {
     params.set("filterBy",  byWhat);
-    history.pushState({params:params.toString()},"true", params.toString());
+    window.location.search = params.toString();
+    history.pushState({params:params.toString()},"true", "");
   } else if (params.get("filterBy")) byWhat = params.get("filterBy");
   switch(byWhat){
     case "steamName":
@@ -108,7 +110,8 @@ function sortLeaderboardsBy(byWhat) {
 }
 function filterLeaderboardsBy(byWhat, value) {
   params.set(byWhat, value);
-  history.pushState({params:params.toString()},"true", params.toString());
+  window.location.search = params.toString();
+  history.pushState({params:params.toString()},"true", "");
   filterLeaderboards();
   displayLeaderboards();
 }
@@ -189,8 +192,11 @@ window.onpopstate = function(event) {
   leaderboards = fullLeaderboards.slice(0);
   if (state) {
     params = new URLSearchParams(state.params);
-    sortLeaderboardsBy();
-    filterLeaderboards();
   }
+  else {
+    params = new URLSearchParams(window.location.search);
+  }
+  sortLeaderboardsBy();
+  filterLeaderboards();
   displayLeaderboards();
 };
