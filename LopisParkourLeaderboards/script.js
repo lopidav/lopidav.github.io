@@ -78,9 +78,10 @@ function textCompare(a,b) {
 }
 function sortLeaderboardsBy(byWhat) {
   if (byWhat) {
+    const url = new URL(location);
     params.set("filterBy",  byWhat);
-    window.location.search = params.toString();
-    history.pushState({params:params.toString()},"true", "");
+    url.searchParams = params;
+    history.pushState({params:params.toString()},"true", url);
   } else if (params.get("filterBy")) byWhat = params.get("filterBy");
   switch(byWhat){
     case "steamName":
@@ -109,9 +110,10 @@ function sortLeaderboardsBy(byWhat) {
   }
 }
 function filterLeaderboardsBy(byWhat, value) {
+  const url = new URL(location);
   params.set(byWhat, value);
-  window.location.search = params.toString();
-  history.pushState({params:params.toString()},"true", "");
+  url.searchParams = params;
+  history.pushState({params:params.toString()},"true", url);
   filterLeaderboards();
   displayLeaderboards();
 }
@@ -126,6 +128,7 @@ function filterLeaderboards() {
         break;
     }
   });
+
 }
 function displayLeaderboards() {
 
