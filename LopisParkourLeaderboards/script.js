@@ -103,7 +103,9 @@ function sortLeaderboardsBy(byWhat) {
       break;
     case "date":
     default:
-      leaderboards.sort((x,y)=>y.date-x.date)
+      let filterParam = params.get("filterBy");
+      if (filterParam == "mapId") leaderboards.sort((x,y)=>y.timeMs-x.timeMs);
+      else leaderboards.sort((x,y)=>y.date-x.date);
       break;
   }
 }
@@ -182,7 +184,7 @@ function httpGetAsync(theUrl, callback) //https://stackoverflow.com/questions/24
 
 window.onpopstate = function(event) {
   leaderboards = fullLeaderboards.slice(0);
-  if (event.state) {
+  if (event.state && event.state.params) {
     params = new URLSearchParams(event.state.params);
   }
   else {
