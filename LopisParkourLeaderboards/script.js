@@ -1,13 +1,14 @@
 document.addEventListener("DOMContentLoaded", onStart);
 var pubTsvURL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vTwPlhqxhy5MsAAMs38LOe1jMcayb4VpZkIYKZ1sdltek4PnbEWT7r5AsbuzLZYb0Wd4iXd1_gnEALf/pub?gid=1664204216&single=true&output=tsv`;
 var leaderboards = [];
+var fullLeaderboards = [];
 var placementSortedLeaderboards = [];
+var params = new URLSearchParams();
 class Record {
-  constructor(dateString, steamId, steamName, map, timeString) {
-    this.date = new Date(dateString);
+  constructor(dateString, steamId, steamName, map, timeString, realDateString) {
+    this.date = new Date(!realDateString ? dateString : realDateString);
     this.steamId = steamId;
     this.steamName = steamName;
-
     this.mapId = map;
     this.timeMs = +timeString.replace(/[.,]/g,"");
   }
@@ -50,10 +51,11 @@ class Record {
 };
 
 httpGetAsync(pubTsvURL, responce => {
-  leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(x[0],x[1],x[2],x[3],x[4]));
+  leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(...x));
   processPlacing();
   sortLeaderboardsBy();
-  console.log(leaderboards);
+  fullLeaderboards = leaderboards.slice(0);
+  // console.log(leaderboards);
   displayLeaderboards()
 });
 
@@ -70,26 +72,104 @@ function processPlacing()
   })
   // leaderboards = placementSortedLeaderboards;
 }
+function textCompare(a,b) {
+  return a == b ? 0 : a > b ? 1 : -1;
+}
 function sortLeaderboardsBy(byWhat) {
+  if (byWhat) {
+    params.set("filterBy",  byWhat);
+    history.pushState({params:params},"true", params.toString());
+  } else if (params.get("filterBy")) byWhat = params.get("filterBy");
   switch(byWhat){
+    case "steamName":
+      leaderboards.sort((a,b)=>textCompare(a.steamName,b.steamName));
+      break;
+    case "placement":
+      leaderboards.sort((a,b)=>a.placement-b.placement);
+      break;
+    case "mapId":
+      leaderboards.sort((a,b)=>textCompare(a.mapId,b.mapId))
+      break;
+    case "mapName":
+      leaderboards
+        .sort((a,b)=>textCompare(a.mapName,b.mapName))
+        .sort((a,b)=>a.mapNumber-b.mapNumber)
+        .sort((a,b)=>textCompare(a.packName,b.packName))
+        .sort((a,b)=>textCompare(a.packAuthor,b.packAuthor))
+      break;
+    case "time":
+      leaderboards.sort((a,b)=>a.time-b.time);
+      break;
     case "date":
     default:
       leaderboards.sort((x,y)=>y.date-x.date)
       break;
   }
 }
-function displayLeaderboards() {
-  document.getElementById("mainTable").innerHTML = leaderboards.map(x=>`
-  <tr style="background-color:${x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`};" >
-    <td>${x.placement}</td>
-    <td><button>${x.steamName}</button></td>
-    <td>${x.time}</td>
-    <td><button>${x.mapName}</button></td>
-    <td>${x.date.toLocaleString()}</td>
-  </tr>`).join`
-`;
+function filterLeaderboardsBy(byWhat, value) {
+  params.set(byWhat, value);
+  history.pushState({params:params},"true", params.toString());
+  filterLeaderboards();
+  displayLeaderboards();
 }
+function filterLeaderboards() {
+  params.forEach((value, byWhat) => {
+    switch(byWhat){
+      case "steamId":
+        leaderboards = leaderboards.filter(x=>x.steamId == value);
+        break;
+      case "mapId":
+        leaderboards = leaderboards.filter(x=>x.mapId == value);
+        break;
+    }
+  });
+}
+function displayLeaderboards() {
 
+  var mainTable = document.getElementById("mainTable");
+  mainTable.innerHTML = "";
+  // mainTable.appendChild(document.createElement('tbody'))
+
+  leaderboards.forEach(x=>{
+    let row = document.createElement('tr');
+    row.style.backgroundColor = x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`;
+    mainTable.appendChild(row);
+    row.appendChild(document.createElement('td')).innerText = x.placement;
+    
+    let steamNameButton = document.createElement('button');
+    steamNameButton.innerText = x.steamName;
+    steamNameButton.addEventListener('click', function(){
+      filterLeaderboardsBy("steamId", x.steamId);
+    });
+
+    let temp = document.createElement('td');
+    temp.appendChild(steamNameButton);
+    row.appendChild(temp)
+
+    row.appendChild(document.createElement('td')).innerText = x.time;
+
+    let mapNameButton = document.createElement('button');
+    mapNameButton.innerText = x.mapName;
+    mapNameButton.addEventListener('click', function(){
+      filterLeaderboardsBy("mapId", x.mapId);
+    });
+
+    temp = document.createElement('td');
+    temp.appendChild(mapNameButton);
+    row.appendChild(temp);
+    
+    row.appendChild(document.createElement('td')).innerText = x.date.toLocaleString();
+  });
+//   `
+//   <tr style="background-color:${x.placement == 1 ? `#ffd900` : x.placement == 2 ? `#ffd90077` : x.placement == 3 ? `#ffd90025` : `initial`};" >
+//     <td>${x.placement}</td>
+//     <td><button onclick="filterLeaderboardsBy('steamId',${"`"+x.steamId+"`"})">${x.steamName}</button></td>
+//     <td>${x.time}</td>
+//     <td><button onclick="filterLeaderboardsBy('mapId',${"`"+x.mapId.replace(/\\/g,"\\\\")+"`"})">${x.mapName}</button></td>
+//     <td>${x.date.toLocaleString()}</td>
+//   </tr>`).join`
+// `;
+}
 function onStart() {
   displayLeaderboards();
 }
@@ -104,3 +184,13 @@ function httpGetAsync(theUrl, callback) //https://stackoverflow.com/questions/24
     xmlHttp.open("GET", theUrl, true); // true for asynchronous 
     xmlHttp.send(null);
 }
+
+window.onpopstate = function(event) {
+  leaderboards = fullLeaderboards.slice(0);
+  if (state) {
+    params = state.params;
+    sortLeaderboardsBy();
+    filterLeaderboards();
+  }
+  displayLeaderboards();
+};
