@@ -48,11 +48,22 @@ class Record {
     if (!this._packName) this._packName = mapAll[0];
     this._packName = this._packName.replace(/_/gi, " ");
     this._mapName = mapAll[1].replace(/(^prk_|\.map$)/gmi,"").replace(/_/gi," ");
+  }
+  isValid() {
+    if (typeof this.mapId === 'undefined') return false;
+    if (this.mapId == "") return false;
+    if (typeof this.timeMs === 'undefined') return false;
+    if (Number.isNaN(this.timeMs)) return false;
+    if (this.timeMs <= 0) return false;
+    if (typeof this.steamId === 'undefined') return false;
+    if (this.steamId == "") return false;
+    if (typeof this.steamName === 'undefined') return false;
+    if (this.steamName == "") return false;
   } 
 };
 
 httpGetAsync(pubTsvURL, responce => {
-  leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(...x));
+  leaderboards = responce.split("\r\n").map(x=>x.split("\t")).slice(1).map(x=>new Record(...x)).filter(x=>x.isValid());
   removeDuplicats();
   processPlacing();
   sortLeaderboardsBy();
