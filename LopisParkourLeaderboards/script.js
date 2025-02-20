@@ -59,6 +59,7 @@ class Record {
     if (this.steamId == "") return false;
     if (typeof this.steamName === 'undefined') return false;
     if (this.steamName == "") return false;
+    return true;
   } 
 };
 
