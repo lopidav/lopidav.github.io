@@ -5,8 +5,8 @@ var fullLeaderboards = [];
 var placementSortedLeaderboards = [];
 var params = new URLSearchParams(window.location.search);
 class Record {
-  constructor(dateString, steamId, steamName, map, timeString, realDateString) {
-    this.date = new Date(!realDateString ? dateString : realDateString);
+  constructor(dateString, steamId, steamName, map, timeString) {
+    this.date = new Date(dateString);
     this.steamId = steamId;
     this.steamName = steamName.replace(/<.+?>/g,"");
     this.mapId = map;
