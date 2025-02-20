@@ -41,6 +41,7 @@ class Record {
   }
   processMapName() {
     if (typeof this.mapId === 'undefined') return;
+    if (this.mapId == "") return;
     let mapAll = this.mapId.split`\\`;
     if (!mapAll[1]) {this._mapNumber = Infinity;this._mapName = this.mapId;this._packAuthor="";this._packName="";}
     [this._packAuthor, this._packName]= mapAll[0].split`_`;
