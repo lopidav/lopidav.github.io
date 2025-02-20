@@ -8,7 +8,7 @@ class Record {
   constructor(dateString, steamId, steamName, map, timeString, realDateString) {
     this.date = new Date(!realDateString ? dateString : realDateString);
     this.steamId = steamId;
-    this.steamName = steamName;
+    this.steamName = steamName.replace(/<.+?>/g,"");
     this.mapId = map;
     this.timeMs = +timeString.replace(/[.,]/g,"");
   }
