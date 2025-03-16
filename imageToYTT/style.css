@@ -1,0 +1,63 @@
+#cards {
+	display: table;
+	width:100%;
+	height: 110%;
+	z-index:1;
+}
+#diceSlot {
+	width:20px;
+	height: 20px;
+    display: inline-block;
+}
+.dice {
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+	background-color: #ebebeb;
+	color: #434343;
+	border-radius: 0.75em;
+    padding: 5px 10px 15px 10px;
+	touch-action: none;
+	user-select: none;
+	border-style: solid;
+  transform: translate(0px, 0px);
+	display: inline-block;
+	position: absolute;
+	z-index:999;
+}
+.card {
+  width: 200px;
+	min-height: 6.5em;
+	margin: 1rem 0 0 1rem;
+	background-color: #ebebeb;
+	color: #434343;
+	border-radius: 0.75em;
+	padding: 2%;
+	touch-action: none;
+	user-select: none;
+	border-style: solid;
+  transform: translate(0px, 0px);
+	display: inline-block;
+	position: absolute;
+}
+
+.card.activated {
+	background-color: #feffe8;
+	color: #434343;
+	z-index:998;
+}
+.card.putted {
+	background-color: #ebd4e8;
+	color: #434343;
+	z-index:997;
+}
+.card.putted .ae{
+	color: #70a2d1;
+}
+
+.card div{
+	margin: 5%;
+}
+.card .header {
+    font-size: 150%;
+}
