@@ -1,0 +1,32 @@
+body {
+overflow-y: hidden; /* Hide vertical scrollbar */
+overflow-x: hidden; /* Hide horizontal scrollbar */
+font-family: "Lucida Console", sans-serif;
+display: flex
+;
+justify-content: center;
+align-items: center;
+align-content: center;
+flex-direction: row-reverse;
+}
+html, body {
+    margin: 0;
+    height: 100%;
+}
+#canvas {
+    z-index: 2;
+}
+#overlayCanvas {
+    z-index: 3;
+}
+#underlayCanvas {
+    z-index: 1;
+}
+canvas {
+  /* position: absolute; */
+  max-width: 100vw;
+  max-height: 100vh;
+  background-color: black;
+  aspect-ratio: 4 / 3;
+  background-color: black;
+}
