@@ -31,7 +31,7 @@ function onStart(event) {
   
     MyGame.lastTick = performance.now();
     MyGame.lastRender = MyGame.lastTick; // Pretend the first draw was on first update.
-    MyGame.tickLength = 50; // This sets your simulation to run at 20Hz (50ms)
+    MyGame.tickLength = 15; // This sets your simulation to run at 20Hz (50ms)
   
     setInitialState();
     main(performance.now()); // Start the cycle
@@ -126,6 +126,8 @@ function cellStroke(chunk, x, y)
     MyGame.scale + MyGame.scale/15, MyGame.scale + MyGame.scale/15);
 }
 function render(tFrame) {
+  // console.log(tFrame);
+
   if (MyGame.requestRedraw && MyGame.allLoaded)
   {
     // MyGame.canvas.width = MyGame.setCanvasWidth;
@@ -180,6 +182,10 @@ function update(DOMHighResTimeStamp) {
       startLvl("grid")
     }
   }
+  if (!MyGame.allLoaded) return;
+  if (MyGame.state == "play") {
+    MyGame.characters.forEach(x=> {if (x.move) {x.move();MyGame.requestRedraw = true;}});
+  }
 }
 function loadCharacters() {
   MyGame.characterPreafabs = ["omni","debbie","invincible","twin","eve","alien"];
@@ -226,15 +232,17 @@ function startLvl(style, lvl)
       default:
         MyGame.characters.push({
           prefab: MyGame.targetPrefab,
-          positionX: (Math.random() * (MyGame.canvas.width + MyGame.characterWidth) - MyGame.characterWidth),
-          positionY: (Math.random() * (MyGame.canvas.height + MyGame.characterHeight)- MyGame.characterHeight)
+          positionX: (Math.random() * (MyGame.canvas.width + MyGame.targetPrefab.width) - MyGame.targetPrefab.width),
+          positionY: (Math.random() * (MyGame.canvas.height + MyGame.targetPrefab.height)- MyGame.targetPrefab.height),
+          move: linearMoventWithEdgeBounce
         })
         MyGame.target = MyGame.characters[MyGame.characters.length-1];
         for (let i = 0; i < MyGame.difficulty*10; i++) MyGame.characters.push(
           {
             prefab: selectRandom(fillerChars),
             positionX: (Math.random() * (MyGame.canvas.width + MyGame.characterWidth) - MyGame.characterWidth),
-            positionY: (Math.random() * (MyGame.canvas.height + MyGame.characterHeight)- MyGame.characterHeight)
+            positionY: (Math.random() * (MyGame.canvas.height + MyGame.characterHeight)- MyGame.characterHeight),
+            move: linearMoventWithEdgeBounce
           });
           MyGame.characters.sort(x=>Math.random()*2-1);
         // let tries1 = 100;
@@ -246,7 +254,9 @@ function startLvl(style, lvl)
     visibility = HowMuchIsVisible(MyGame.target);
     console.log(visibility);
   }
+  MyGame.state = "play";
 }
+
 function HowMuchIsVisible(character)
 {
   if (character.positionX + character.prefab.canvas.width <= 0) return 0;
@@ -334,17 +344,48 @@ function setInitialState() {
   // MyGame.requestRedraw = true;
 }
 function leftDown() {
-  if (!MyGame.characterDarkenFilter) {
+  if (MyGame.state == "play") {
+    MyGame.state = "found";
     // MyGame.characters = [MyGame.characters[0]];
     MyGame.characterDarkenFilter = x=>x.prefab.name!=MyGame.targetPrefab.name;
     // MyGame.ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
     // MyGame.ctx.fillRect(0, 0, MyGame.canvas.width, MyGame.canvas.height);
   }
-  else {MyGame.difficulty+=1;startLvl();MyGame.characterDarkenFilter = undefined;}
+  else if (MyGame.state == "found") {MyGame.state == "play";MyGame.difficulty+=1;startLvl();MyGame.characterDarkenFilter = undefined;}
   
   MyGame.requestRedraw = true;
 }
 
+function linearMoventWithEdgeBounce() {
+  if (typeof this.velocityX === "undefined" || typeof this.velocityY === "undefined") {
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 5;
+    this.velocityX = Math.sin(angle)*speed;
+    this.velocityY = Math.cos(angle)*speed;
+  }
+
+  this.positionX += this.velocityX;
+  this.positionY += this.velocityY;
+
+  if (this.positionX <= 0) {
+    this.positionX = 0;
+    this.velocityX = -this.velocityX;
+  }
+  if (this.positionX >= MyGame.canvas.width - this.prefab.canvas.width) {
+    this.positionX = MyGame.canvas.width - this.prefab.canvas.width;
+    this.velocityX = -this.velocityX;
+  }
+
+  if (this.positionY <= 0) {
+    this.positionY = 0;
+    this.velocityY = -this.velocityY;
+  }
+  if (this.positionY >= MyGame.canvas.height - this.prefab.canvas.height) {
+    this.positionY = MyGame.canvas.height - this.prefab.canvas.height;
+    this.velocityY = -this.velocityY;
+  }
+
+}
 
 
 function downScaleCanvas(cv, scale) {//taken from https://itecnote.com/tecnote/javascript-html5-canvas-resize-downscale-image-high-quality/
