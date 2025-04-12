@@ -205,8 +205,8 @@ function startLvl(style, lvl)
     switch (style)
     {
       case "grid":
-        let howManyX = 8;
-        let howManyY = 8;
+        let howManyX = 20;
+        let howManyY = 14;
         let grid = Array(howManyY).fill(0);
         grid = grid.map(_=>Array(howManyX).fill(0));
         let targetX = Math.random()*grid[0].length|0;
@@ -226,15 +226,15 @@ function startLvl(style, lvl)
       default:
         MyGame.characters.push({
           prefab: MyGame.targetPrefab,
-          positionX: (Math.random() * (MyGame.canvas.width - MyGame.characterWidth)),
-          positionY: (Math.random() * (MyGame.canvas.height - MyGame.characterHeight))
+          positionX: (Math.random() * (MyGame.canvas.width + MyGame.characterWidth) - MyGame.characterWidth),
+          positionY: (Math.random() * (MyGame.canvas.height + MyGame.characterHeight)- MyGame.characterHeight)
         })
         MyGame.target = MyGame.characters[MyGame.characters.length-1];
         for (let i = 0; i < MyGame.difficulty*10; i++) MyGame.characters.push(
           {
             prefab: selectRandom(fillerChars),
-            positionX: (Math.random() * (MyGame.canvas.width - MyGame.characterWidth)),
-            positionY: (Math.random() * (MyGame.canvas.height - MyGame.characterHeight))
+            positionX: (Math.random() * (MyGame.canvas.width + MyGame.characterWidth) - MyGame.characterWidth),
+            positionY: (Math.random() * (MyGame.canvas.height + MyGame.characterHeight)- MyGame.characterHeight)
           });
           MyGame.characters.sort(x=>Math.random()*2-1);
         // let tries1 = 100;
@@ -249,6 +249,11 @@ function startLvl(style, lvl)
 }
 function HowMuchIsVisible(character)
 {
+  if (character.positionX + character.prefab.canvas.width <= 0) return 0;
+  if (character.positionY + character.prefab.canvas.height <= 0) return 0;
+  if (character.positionX >= MyGame.canvas.width) return 0;
+  if (character.positionY >= MyGame.canvas.height) return 0;
+
   MyGame.testCtx.clearRect(0,0,MyGame.testCanvas.width,MyGame.testCanvas.height);
   MyGame.testCtx.globalCompositeOperation = "destination-out";
   var distX, distY;
@@ -264,7 +269,12 @@ function HowMuchIsVisible(character)
     }
   })
 
-  var buffer1 = MyGame.testCtx.getImageData(character.positionX, character.positionY, character.prefab.canvas.width, character.prefab.canvas.height).data;
+  var buffer1 = MyGame.testCtx.getImageData(
+    Math.max(0,character.positionX),
+    Math.max(0,character.positionY),
+    Math.min(character.prefab.canvas.width, MyGame.canvas.width - character.positionX),
+    Math.min(character.prefab.canvas.height, MyGame.canvas.height - character.positionY)).data;
+
   var visiblePixels = 0;
   for(var i = 0; i < buffer1.length; i+=4)
   {
