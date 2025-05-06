@@ -1,0 +1,17 @@
+<html>
+ <head>
+  <meta charset="utf-8" name="viewport" content="user-scalable=no" />
+  <link href="./style.css" rel="stylesheet">
+  <script type="text/javascript" src="../jquery.js"></script>
+  <script type="text/javascript" src="../math.min.js"></script>
+  <script type="text/javascript" src="./script.js"></script>
+ </head>
+ <body>
+  upload video, wait till there's a bunch of text in the output text area
+<input type="file" id="inputVideo" onchange="videoUploaded()" />
+<canvas id="secondaryCanvas"></canvas>
+<canvas id="thirdaryCanvas"></canvas>
+<textarea id="output" placeholder="output" spellcheck="false"></textarea>
+<video id="videoInput"></video>
+ </body>
+</html>

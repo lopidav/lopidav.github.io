@@ -7,27 +7,57 @@ display: flex
 justify-content: center;
 align-items: center;
 align-content: center;
-flex-direction: row-reverse;
-flex-wrap: wrap;
+flex-direction: row-reverse; 
+flex-wrap: nowrap;
+background-color: black;
+/* max-width: 95vw; */
+/* max-height: 95vh; */
 }
 html, body {
     margin: 0;
     height: 100%;
+    color: white;
+    font-size: 3vmin;
+}
+#leftSideText {
+    writing-mode: vertical-rl;
+}
+#rightSideText {
+    writing-mode: sideways-lr;;
 }
 #canvas {
     z-index: 2;
+    border: 0.1vmin solid white;
+    max-width: 95vw;
+    max-height: 95vh;
+    min-height: 20vh;
+    /* aspect-ratio: 15/9; */
+    background-color: black;
+    transition: width 2s ease,height 2s ease;
 }
-#overlayCanvas {
-    z-index: 3;
+#face {
+    /* z-index: 2; */
+    border: 0.1vmin solid white;
+    max-width: 30vmin;
+    max-height: 30vmin;
+    aspect-ratio: 1;
+    background-color: black;
 }
-#underlayCanvas {
-    z-index: 1;
+
+#sidebar {
+    /* z-index: 2; */
+    border: 0.1vmin solid white;
+    /* max-width: 30vmin;
+    max-height: 30vmin; */
+    /* aspect-ratio: 1; */
+    /* background-color: black; */
+    display: flex;
+    flex-grow: 1;
+    max-width: 95vw;
+    max-height: 95vh;
 }
-canvas {
-  /* position: absolute; */
-  max-width: 95vw;
-  max-height: 95vh;
-  background-color: black;
-  aspect-ratio: 4 / 3;
-  background-color: black;
+#mainbar {
+    border: 0.1vmin solid white;
+    display: flex;
+    flex-grow: 1;
 }
