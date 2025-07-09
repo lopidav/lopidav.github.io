@@ -794,13 +794,26 @@
                 ctx.lineWidth = 3;
                 ctx.stroke();
 
-                ctx.fillStyle = '#00FF00'; // Bright Lime Green for median label
+                // Draw background for median text
                 ctx.font = '14px Inter';
                 ctx.textAlign = 'center';
-                ctx.fillText(
-                    `Median (${geometricMedianPoint.x.toFixed(1)}, ${geometricMedianPoint.z.toFixed(1)})`,
-                    canvasPos.x, canvasPos.y + 25
+                const medianText = `Median (${geometricMedianPoint.x.toFixed(1)}, ${geometricMedianPoint.z.toFixed(1)})`;
+                const textMetrics = ctx.measureText(medianText);
+                const textWidth = textMetrics.width;
+                const textHeight = 14; // Approximate font height
+                const paddingX = 5;
+                const paddingY = 3;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Dark semi-transparent background
+                ctx.fillRect(
+                    canvasPos.x - textWidth / 2 - paddingX,
+                    canvasPos.y + 25 - textHeight - paddingY,
+                    textWidth + 2 * paddingX,
+                    textHeight + 2 * paddingY
                 );
+
+                ctx.fillStyle = '#00FF00'; // Bright Lime Green for median label
+                ctx.fillText(medianText, canvasPos.x, canvasPos.y + 25);
 
                 medianCoordinatesText.textContent = `X: ${geometricMedianPoint.x.toFixed(2)}, Z: ${geometricMedianPoint.z.toFixed(2)}`;
                 medianPanel.classList.remove('hidden');
@@ -811,13 +824,25 @@
 
             // Draw cursor coordinates if available (always on top)
             if (cursorWorldCoords) {
-                ctx.fillStyle = '#e2e8f0';
                 ctx.font = '12px Inter';
                 ctx.textAlign = 'right';
-                ctx.fillText(
-                    `Cursor: (${cursorWorldCoords.x.toFixed(1)}, ${cursorWorldCoords.z.toFixed(1)})`,
-                    canvas.width - 10, canvas.height - 10
+                const cursorText = `Cursor: (${cursorWorldCoords.x.toFixed(1)}, ${cursorWorldCoords.z.toFixed(1)})`;
+                const textMetrics = ctx.measureText(cursorText);
+                const textWidth = textMetrics.width;
+                const textHeight = 12; // Approximate font height
+                const paddingX = 5;
+                const paddingY = 3;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Dark semi-transparent background
+                ctx.fillRect(
+                    canvas.width - 10 - textWidth - paddingX,
+                    canvas.height - 10 - textHeight - paddingY,
+                    textWidth + 2 * paddingX,
+                    textHeight + 2 * paddingY
                 );
+
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText(cursorText, canvas.width - 10, canvas.height - 10);
             }
         }
 
