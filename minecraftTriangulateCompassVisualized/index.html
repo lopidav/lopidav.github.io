@@ -85,7 +85,7 @@
             width: 100%;
             margin-top: 10px;
         }
-        .median-panel {
+        .median-panel, .description-panel {
             background-color: #2d3748;
             border: 1px solid #4a5568;
             border-radius: 8px;
@@ -96,20 +96,36 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
-        .median-panel h3 {
+        .median-panel h3, .description-panel h3 {
             color: #feebc8;
             font-size: 1.2em;
             margin-bottom: 8px;
         }
-        .median-panel p {
+        .median-panel p, .description-panel p {
             font-size: 1.1em;
             font-weight: bold;
             color: #e2e8f0;
         }
+        .toggle-button {
+            background-color: #63b3ed;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin: 5px;
+        }
+        .toggle-button.active {
+            background-color: #38a169; /* Green when active */
+        }
+        .toggle-button:hover {
+            background-color: #4299e1;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col items-center p-5">
-    <h1 class="text-3xl font-bold mb-6 text-blue-400">Minecraft XZ Ray Intersection Visualizer</h1>
+    <h1 class="text-3xl font-bold mb-6 text-blue-400">Minecraft Simple XZ Triangulation</h1>
 
     <canvas id="rayCanvas" width="800" height="600" class="mb-6"></canvas>
 
@@ -127,11 +143,28 @@
                 Reset Records
             </button>
         </div>
+        <div class="button-row mt-4">
+            <button id="toggleMapButton" class="toggle-button">
+                Toggle Map: On
+            </button>
+            <button id="toggleCompassAdjustmentButton" class="toggle-button">
+                Using a Compass: On
+            </button>
+        </div>
     </div>
 
     <div id="medianPanel" class="median-panel hidden">
         <h3>Geometric Median of Intersections:</h3>
         <p id="medianCoordinates">No median calculated.</p>
+    </div>
+
+    <div class="description-panel">
+        <h3>Description:</h3>
+        <p class="text-sm text-gray-300 text-left">
+            This tool is made for triangulation based on your position and angle of view. You manually enter X Z and angle from the F3 screen or you can press F3+C and insert the result here.
+            <br><br>
+            If you're using a compass angle yourself so the compass is just between showing straight ahead and a bit to the left. Like, right on the edge of it switching from one to another, you need to be accurate with it. And make sure the "Using a Compass" button is toggled on.
+        </p>
     </div>
 
     <script>
@@ -151,7 +184,6 @@
 
         /**
          * Helper function to convert degrees to radians.
-         * Use this if your input angles are in degrees.
          * @param {number} degrees Angle in degrees.
          * @returns {number} Angle in radians.
          */
@@ -423,11 +455,16 @@
 
         const canvas = document.getElementById('rayCanvas');
         const ctx = canvas.getContext('2d');
+        // Disable image smoothing for pixelated zoom
+        ctx.imageSmoothingEnabled = false;
+
         const recordInputTextarea = document.getElementById('recordInputTextarea');
         const drawButton = document.getElementById('drawButton');
         const resetButton = document.getElementById('resetButton');
         const medianPanel = document.getElementById('medianPanel');
         const medianCoordinatesText = document.getElementById('medianCoordinates');
+        const toggleMapButton = document.getElementById('toggleMapButton');
+        const toggleCompassAdjustmentButton = document.getElementById('toggleCompassAdjustmentButton');
 
         // Global variables for canvas transformation
         let currentScale = 1;
@@ -435,10 +472,28 @@
         let currentOffsetY = 0;
         const MIN_SCALE = 0.01;
         const ZOOM_SENSITIVITY = 0.1; // How much zoom per scroll tick
+        const ANGLE_ERROR_TOLERANCE = 0.1; // Degrees of possible error in angle measurements
 
         let isDragging = false;
         let lastMouseX = 0;
         let lastMouseY = 0;
+
+        // Toggle states
+        let showMap = true; // Default to showing map
+        let useCompassAdjustment = true; // Default to using compass adjustment
+
+        // Map image setup
+        const mapImage = new Image();
+        mapImage.src = 'chunkbase_4840887614380714799.png';
+        mapImage.onerror = () => {
+            console.error("Failed to load map image. Please ensure 'chunkbase_4840887614380714799.png' is accessible.");
+            // Optionally, display a message on the canvas or in a UI element
+            // ctx.fillText('Map image failed to load.', canvas.width / 2, canvas.height / 2 + 50);
+        };
+        mapImage.onload = () => {
+            // Redraw the visualization once the map image is loaded
+            drawVisualization();
+        };
 
         // Function to transform world coordinates to canvas coordinates
         function worldToCanvas(worldX, worldZ) {
@@ -490,18 +545,18 @@
                         }
                     } else {
                         console.warn(`Skipping unrecognized line format: "${line}"`);
-                        return; // Skip this line
+                            return; // Skip this line
                     }
                 }
 
-                // Apply the 5.6 degrees adjustment to the angle
-                const adjustedAngleDegrees = angleDegrees - 5.6;
+                // Apply the 5.6 degrees adjustment to the angle, if enabled
+                const finalAngleDegrees = useCompassAdjustment ? (angleDegrees - 5.6) : angleDegrees;
 
                 currentRecords.push({
                     id: `Record ${recordIdCounter++}`, // Auto-generate ID (used internally, not displayed)
                     x: x,
                     z: z,
-                    angle: degreesToRadians(adjustedAngleDegrees) // Convert adjusted degrees to radians
+                    angle: degreesToRadians(finalAngleDegrees) // Convert adjusted degrees to radians
                 });
             });
             return currentRecords;
@@ -580,6 +635,31 @@
                 currentOffsetY = initialOffsetY;
             }
 
+            // --- Draw Map Image (under everything else) ---
+            if (showMap && mapImage.complete && mapImage.naturalWidth > 0) {
+                const mapWorldSize = 5000; // Map is 5000x5000 world units
+                const mapWorldHalf = mapWorldSize / 2;
+
+                // World coordinates of the top-left corner of the map
+                // Center is 0,0, so top-left is (-mapHalf, -mapHalf)
+                const mapWorldTopLeftX = -mapWorldHalf;
+                const mapWorldTopLeftZ = -mapWorldHalf;
+
+                const mapCanvasStart = worldToCanvas(mapWorldTopLeftX, mapWorldTopLeftZ);
+
+                // Calculate the width and height of the image on the canvas based on current scale
+                const mapCanvasWidth = mapWorldSize * currentScale;
+                const mapCanvasHeight = mapWorldSize * currentScale;
+
+                ctx.drawImage(mapImage, mapCanvasStart.x, mapCanvasStart.y, mapCanvasWidth, mapCanvasHeight);
+            } else if (showMap) {
+                // Fallback for when image is not loaded or has errors, but map is supposed to be shown
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '16px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('Loading map...', canvas.width / 2, canvas.height / 2 + 50);
+            }
+
 
             // Draw Grid (optional, but helpful for context)
             ctx.strokeStyle = '#4a5568'; // Darker gray for grid
@@ -605,7 +685,7 @@
                 ctx.stroke();
             }
 
-            // Draw X and Z axes (positive directions) - DRAW FIRST for layering
+            // Draw X and Z axes (positive directions)
             const originCanvas = worldToCanvas(0, 0);
 
             // Draw Positive X-axis (Red)
@@ -656,6 +736,34 @@
                 ctx.strokeStyle = '#a0aec0'; // Light gray for rays
                 ctx.lineWidth = 1.5;
                 ctx.stroke(); // Solid line
+
+                // Draw angle inaccuracy triangle
+                const errorAngleRadians = degreesToRadians(ANGLE_ERROR_TOLERANCE);
+                const angleMinusError = record.angle - errorAngleRadians;
+                const anglePlusError = record.angle + errorAngleRadians;
+
+                const dxError1 = -Math.sin(angleMinusError);
+                const dzError1 = Math.cos(angleMinusError);
+                const dxError2 = -Math.sin(anglePlusError);
+                const dzError2 = Math.cos(anglePlusError);
+
+                // Extend the error rays for the same length as the main rays
+                const errorPoint1X = record.x + dxError1 * rayLength; // Use rayLength
+                const errorPoint1Z = record.z + dzError1 * rayLength; // Use rayLength
+                const errorPoint2X = record.x + dxError2 * rayLength; // Use rayLength
+                const errorPoint2Z = record.z + dzError2 * rayLength; // Use rayLength
+
+                const canvasErrorPoint1 = worldToCanvas(errorPoint1X, errorPoint1Z);
+                const canvasErrorPoint2 = worldToCanvas(errorPoint2X, errorPoint2Z);
+
+                ctx.beginPath();
+                ctx.moveTo(canvasPos.x, canvasPos.y); // Start at the record's position
+                ctx.lineTo(canvasErrorPoint1.x, canvasErrorPoint1.y);
+                ctx.lineTo(canvasErrorPoint2.x, canvasErrorPoint2.y);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.1)'; // Semi-transparent yellow
+                ctx.fill();
+                // Removed ctx.strokeStyle and ctx.lineWidth for the outline
             });
 
             // Draw Intersections
@@ -718,6 +826,8 @@
         // Function to save textarea content to localStorage
         function saveInputToLocalStorage() {
             localStorage.setItem('minecraftRayVizInput', recordInputTextarea.value);
+            localStorage.setItem('minecraftRayVizShowMap', showMap);
+            localStorage.setItem('minecraftRayVizUseCompassAdjustment', useCompassAdjustment);
         }
 
         // Function to load textarea content from localStorage
@@ -727,28 +837,104 @@
                 recordInputTextarea.value = savedInput;
             } else {
                 // Set initial content if nothing is in localStorage
-                recordInputTextarea.value = `0 1 185.6
-1 0 95.6
--5 0 275.6
-0 -5 5.6
-/execute in minecraft:overworld run tp @s 380.74 -60.00 4772.29 -904.37 25.73`;
+                resetDefaultRecords();
+            }
+
+            const savedShowMap = localStorage.getItem('minecraftRayVizShowMap');
+            if (savedShowMap !== null) {
+                showMap = (savedShowMap === 'true');
+            }
+            updateToggleButtonState(toggleMapButton, showMap, 'Map');
+
+            const savedUseCompassAdjustment = localStorage.getItem('minecraftRayVizUseCompassAdjustment');
+            if (savedUseCompassAdjustment !== null) {
+                useCompassAdjustment = (savedUseCompassAdjustment === 'true');
+            }
+            updateToggleButtonState(toggleCompassAdjustmentButton, useCompassAdjustment, 'Using a Compass');
+        }
+
+        // Helper to get Minecraft angle (degrees) from player (px, pz) to target (tx, tz)
+        const getAngleToTarget = (px, pz, tx, tz) => {
+            const vx = tx - px; // vector X component
+            const vz = tz - pz; // vector Z component
+            // Angle in radians clockwise from positive Z-axis
+            let angleRadians = Math.atan2(-vx, vz); // -vx for sine, vz for cosine
+            let angleDegrees = angleRadians * 180 / Math.PI;
+            // Normalize to 0-360 range
+            if (angleDegrees < 0) {
+                angleDegrees += 360;
+            }
+            return angleDegrees;
+        };
+
+        // Function to set default records with randomization
+        function resetDefaultRecords() {
+            const defaultDistance = 100; // Roughly 100 units from center
+            // Randomization within +/- 2 degrees
+            const randomAngleOffset = () => (Math.random() - 0.5) * 4;
+
+            // Calculate angles for each point to look at (0,0)
+            // The 5.6 adjustment needs to be added to the calculated angle to get the input string value
+            // because the parsing function SUBTRACTS 5.6.
+
+            const angle0_100_to_origin = getAngleToTarget(0, defaultDistance, 0, 0);
+            const angle100_0_to_origin = getAngleToTarget(defaultDistance, 0, 0, 0);
+            const angle0_minus100_to_origin = getAngleToTarget(0, -defaultDistance, 0, 0);
+            const angle_minus100_0_to_origin = getAngleToTarget(-defaultDistance, 0, 0, 0);
+
+            const x_tp = defaultDistance * 0.7;
+            const z_tp = defaultDistance * 0.7;
+            const angleTp_to_origin = getAngleToTarget(x_tp, z_tp, 0, 0);
+
+
+            recordInputTextarea.value = `0 ${defaultDistance} ${(angle0_100_to_origin + randomAngleOffset() + 5.6).toFixed(2)}
+${defaultDistance} 0 ${(angle100_0_to_origin + randomAngleOffset() + 5.6).toFixed(2)}
+0 ${-defaultDistance} ${(angle0_minus100_to_origin + randomAngleOffset() + 5.6).toFixed(2)}
+${-defaultDistance} 0 ${(angle_minus100_0_to_origin + randomAngleOffset() + 5.6).toFixed(2)}
+/execute in minecraft:overworld run tp @s ${x_tp.toFixed(2)} -60.00 ${z_tp.toFixed(2)} ${(angleTp_to_origin + randomAngleOffset() + 5.6).toFixed(2)} 25.73`;
+        }
+
+        // Function to update button text and class
+        function updateToggleButtonState(button, isActive, label) {
+            button.textContent = `${label}: ${isActive ? 'On' : 'Off'}`;
+            if (isActive) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
             }
         }
 
         drawButton.addEventListener('click', drawVisualization);
         resetButton.addEventListener('click', () => {
-            recordInputTextarea.value = `0 1 185.6
-1 0 95.6
--5 0 275.6
-0 -5 5.6
-/execute in minecraft:overworld run tp @s 380.74 -60.00 4772.29 -904.37 25.73`; // Added new format example
-            saveInputToLocalStorage(); // Save the reset value
+            resetDefaultRecords(); // Call the new function to set defaults
+            // Reset toggles to default (On) when resetting records
+            showMap = true;
+            useCompassAdjustment = true;
+            updateToggleButtonState(toggleMapButton, showMap, 'Map');
+            updateToggleButtonState(toggleCompassAdjustmentButton, useCompassAdjustment, 'Using a Compass');
+
+            saveInputToLocalStorage(); // Save the reset values
             // Reset zoom/pan when resetting records
             currentScale = 1;
             currentOffsetX = 0;
             currentOffsetY = 0;
             drawVisualization();
         });
+
+        toggleMapButton.addEventListener('click', () => {
+            showMap = !showMap;
+            updateToggleButtonState(toggleMapButton, showMap, 'Map');
+            saveInputToLocalStorage();
+            drawVisualization();
+        });
+
+        toggleCompassAdjustmentButton.addEventListener('click', () => {
+            useCompassAdjustment = !useCompassAdjustment;
+            updateToggleButtonState(toggleCompassAdjustmentButton, useCompassAdjustment, 'Using a Compass');
+            saveInputToLocalStorage();
+            drawVisualization(); // Redraw to apply/remove adjustment
+        });
+
 
         // Add event listener to save input on every change
         recordInputTextarea.addEventListener('input', saveInputToLocalStorage);
@@ -821,7 +1007,7 @@
 
         // Draw on window load
         window.onload = () => {
-            loadInputFromLocalStorage(); // Load saved input
+            loadInputFromLocalStorage(); // Load saved input and toggle states
             drawVisualization();
         };
 
