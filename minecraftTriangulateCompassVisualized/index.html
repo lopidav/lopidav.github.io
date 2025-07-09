@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft XZ Ray Intersection Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a202c; /* Dark background */
+            color: #e2e8f0; /* Light text */
+            padding: 20px;
+            overflow: auto; /* Allow scrolling if content overflows */
+        }
+        canvas {
+            background-color: #2d3748; /* Darker canvas background */
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            max-width: 100%; /* Ensure canvas is responsive */
+            height: auto;
+            cursor: grab; /* Indicate draggable */
+        }
+        canvas.grabbing {
+            cursor: grabbing; /* Indicate currently dragging */
+        }
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #2d3748;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            justify-content: center;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .control-group label {
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #a0aec0;
+        }
+        .control-group textarea {
+            background-color: #4a5568;
+            border: 1px solid #6b7280;
+            border-radius: 4px;
+            padding: 8px;
+            color: #e2e8f0;
+            width: 100%;
+            min-height: 150px;
+            resize: vertical;
+        }
+        .control-group button {
+            background-color: #4299e1;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        .control-group button:hover {
+            background-color: #3182ce;
+        }
+        .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .median-panel {
+            background-color: #2d3748;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .median-panel h3 {
+            color: #feebc8;
+            font-size: 1.2em;
+            margin-bottom: 8px;
+        }
+        .median-panel p {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col items-center p-5">
+    <h1 class="text-3xl font-bold mb-6 text-blue-400">Minecraft XZ Ray Intersection Visualizer</h1>
+
+    <canvas id="rayCanvas" width="800" height="600" class="mb-6"></canvas>
+
+    <div class="controls rounded-lg shadow-lg p-5 bg-gray-800">
+        <div class="control-group">
+            <label for="recordInputTextarea" class="text-xl font-semibold mb-3 text-blue-300">Record Definitions (X Z AngleInDegrees or /execute tp command per line)</label>
+            <textarea id="recordInputTextarea" placeholder="e.g.,&#10;0 1 180&#10;/execute in minecraft:overworld run tp @s 380.74 -60.00 4772.29 -904.37 25.73"></textarea>
+        </div>
+
+        <div class="button-row">
+            <button id="drawButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                Draw Rays & Intersections
+            </button>
+            <button id="resetButton" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                Reset Records
+            </button>
+        </div>
+    </div>
+
+    <div id="medianPanel" class="median-panel hidden">
+        <h3>Geometric Median of Intersections:</h3>
+        <p id="medianCoordinates">No median calculated.</p>
+    </div>
+
+    <script>
+        // --- Helper Functions ---
+
+        /**
+         * Calculates the Euclidean distance between two 2D points.
+         * @param {{x: number, z: number}} p1 The first point.
+         * @param {{x: number, z: number}} p2 The second point.
+         * @returns {number} The Euclidean distance.
+         */
+        function euclideanDistance(p1, p2) {
+            const dx = p1.x - p2.x;
+            const dz = p1.z - p2.z;
+            return Math.sqrt(dx * dx + dz * dz);
+        }
+
+        /**
+         * Helper function to convert degrees to radians.
+         * Use this if your input angles are in degrees.
+         * @param {number} degrees Angle in degrees.
+         * @returns {number} Angle in radians.
+         */
+        function degreesToRadians(degrees) {
+            return degrees * Math.PI / 180;
+        }
+
+        /**
+         * Parses a Minecraft /tp command string to extract X, Z, and Angle (Yaw).
+         * Expected format: "/execute in minecraft:overworld run tp @s X Y Z AngleYaw AnglePitch"
+         * @param {string} str The /tp command string.
+         * @returns {[number, number, number]|null} An array [x, z, angle] or null if parsing fails.
+         */
+        function parseTP(str) {
+            const parts = str.split(' ');
+            if (parts.length >= 10 && parts[0] === '/execute' && parts[5] === '@s') {
+                const x = parseFloat(parts[6]);
+                const z = parseFloat(parts[8]); // Z is the 9th part (index 8)
+                const angle = parseFloat(parts[9]); // Angle is the 10th part (index 9)
+
+                if (!isNaN(x) && !isNaN(z) && !isNaN(angle)) {
+                    return [x, z, angle];
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Calculates the geometric median of an array of 2D points (x, z coordinates)
+         * using an iterative approach (Weiszfeld's algorithm).
+         *
+         * Each point can optionally have a 'weight' property. If not provided, the weight defaults to 1.
+         * The geometric median minimizes the sum of (weight * Euclidean distance) to all other points.
+         *
+         * @param {Array<Object>} points An array of point objects. Each object must have:
+         * - `x`: number (X coordinate)
+         * - `z`: number (Z coordinate)
+         * - `weight`: number (Optional. The weight of the point. Defaults to 1 if not present or non-positive).
+         * @param {number} [tolerance=1e-6] The convergence tolerance. The algorithm stops when the change
+         * in the median between iterations is less than this value.
+         * @param {number} [maxIterations=1000] The maximum number of iterations to prevent infinite loops.
+         * @returns {{x: number, z: number}|null} An object with x and z properties representing the
+         * geometric median, or null if the input array is empty or invalid.
+         */
+        function getGeometricMedian(points, tolerance = 1e-6, maxIterations = 1000) {
+            if (!points || points.length === 0) {
+                return null;
+            }
+
+            // Filter out points with invalid weights and ensure weights are numbers
+            const validPoints = points.map(p => ({
+                x: p.x,
+                z: p.z,
+                weight: (typeof p.weight === 'number' && p.weight > 0) ? p.weight : 1
+            }));
+
+            // If there's only one valid point, it is the geometric median.
+            if (validPoints.length === 1) {
+                return { x: validPoints[0].x, z: validPoints[0].z };
+            }
+
+            // Initialize the geometric median guess with the weighted centroid (mean of all points).
+            let currentMedian = { x: 0, z: 0 };
+            let totalInitialWeight = 0;
+            for (const p of validPoints) {
+                currentMedian.x += p.x * p.weight;
+                currentMedian.z += p.z * p.weight;
+                totalInitialWeight += p.weight;
+            }
+            currentMedian.x /= totalInitialWeight;
+            currentMedian.z /= totalInitialWeight;
+
+            let iteration = 0;
+            let converged = false;
+
+            while (iteration < maxIterations && !converged) {
+                let sumWeightedX = 0;
+                let sumWeightedZ = 0;
+                let sumWeights = 0;
+
+                for (const p of validPoints) {
+                    const dist = euclideanDistance(p, currentMedian);
+
+                    // The 'base' weight for the Weiszfeld algorithm is 1/distance.
+                    // We multiply this by the point's intrinsic weight.
+                    // Add a small epsilon to prevent division by zero and ensure stability.
+                    const baseWeight = 1 / (dist > 0 ? dist : 1e-12);
+                    const combinedWeight = p.weight * baseWeight;
+
+                    sumWeightedX += p.x * combinedWeight;
+                    sumWeightedZ += p.z * combinedWeight;
+                    sumWeights += combinedWeight;
+                }
+
+                // If sumWeights is zero (e.g., all points are at the currentMedian and dist=0),
+                // it means we've converged or are stuck. Break to prevent division by zero.
+                if (sumWeights === 0) {
+                    converged = true; // Effectively converged to a point
+                    break;
+                }
+
+                const nextMedian = {
+                    x: sumWeightedX / sumWeights,
+                    z: sumWeightedZ / sumWeights
+                };
+
+                // Check for convergence
+                const change = euclideanDistance(currentMedian, nextMedian);
+                if (change < tolerance) {
+                    converged = true;
+                }
+
+                currentMedian = nextMedian;
+                iteration++;
+            }
+
+            return currentMedian;
+        }
+
+        /**
+         * Calculates the intersection point of two rays in a 2D (XZ) coordinate system,
+         * suitable for Minecraft's horizontal plane.
+         *
+         * Each ray is defined by its origin point (x, z) and a horizontal angle.
+         * The angles are expected to be in radians, following the specified Minecraft convention:
+         * - 0 radians (0 degrees) points along the positive Z-axis (North).
+         * - Math.PI/2 radians (90 degrees) points along the negative X-axis (West).
+         * - Math.PI radians (180 degrees) points along the negative Z-axis (South).
+         * - 3*Math.PI/2 radians (270 degrees) points along the positive X-axis (East).
+         * Angles increase clockwise from the positive Z-axis.
+         *
+         * @param {number} x1 The X-coordinate of the origin of the first ray (Record 1's X).
+         * @param {number} z1 The Z-coordinate of the origin of the first ray (Record 1's Z).
+         * @param {number} angle1 The horizontal angle of the first ray in radians (Minecraft convention).
+         * @param {number} x2 The X-coordinate of the origin of the second ray (Record 2's X).
+         * @param {number} z2 The Z-coordinate of the origin of the second ray (Record 2's Z).
+         * @param {number} angle2 The horizontal angle of the second ray in radians (Minecraft convention).
+         * @returns {{x: number, z: number}|null} An object with x and z properties representing the
+         * intersection point, or null if the rays are parallel,
+         * coincident, or do not intersect in their forward direction.
+         */
+        function getMinecraftXZRayIntersection(x1, z1, angle1, x2, z2, angle2) {
+            // Calculate the direction components (dx, dz) for each ray based on the Minecraft angle convention.
+            // In this convention (0=Z+, 90=X-):
+            // dx = -Math.sin(angle) (for X-axis component)
+            // dz = Math.cos(angle) (for Z-axis component)
+            const dx1 = -Math.sin(angle1);
+            const dz1 = Math.cos(angle1);
+            const dx2 = -Math.sin(angle2);
+            const dz2 = Math.cos(angle2);
+
+            // The denominator (D) of the system of equations.
+            // This determines if the lines are parallel.
+            // D = (dx1 * dz2) - (dz1 * dx2)
+            const D = dx1 * dz2 - dz1 * dx2;
+
+            // A small epsilon value to handle floating point inaccuracies when checking for parallelism.
+            // Rays are considered parallel if D is very close to zero.
+            const EPSILON = 1e-9;
+
+            // Check if the rays are parallel or collinear.
+            // If D is very close to zero, the rays are parallel, meaning they will never
+            // intersect uniquely, or they are coincident (overlapping).
+            if (Math.abs(D) < EPSILON) {
+                return null; // No unique intersection point (rays are parallel or coincident)
+            }
+
+            // Calculate t1 (parameter for ray 1)
+            // This represents the distance along ray 1 to the intersection point.
+            // Corrected numerator for t1: (x2 - x1) * dz2 - (z2 - z1) * dx2
+            const numT1 = (x2 - x1) * dz2 - (z2 - z1) * dx2;
+            const t1 = numT1 / D;
+
+            // Calculate t2 (parameter for ray 2)
+            // This represents the distance along ray 2 to the intersection point.
+            // Corrected numerator for t2: (x2 - x1) * dz1 - (z2 - z1) * dx1
+            const numT2 = (x2 - x1) * dz1 - (z2 - z1) * dx1;
+            const t2 = numT2 / D;
+
+            // Check if the intersection point lies on the forward direction of both rays.
+            // For a ray, the parameter 't' must be non-negative (t >= 0).
+            // If t is negative, the intersection occurs "behind" the ray's origin.
+            if (t1 < 0 || t2 < 0) {
+                return null; // The lines intersect, but the rays (forward paths) do not.
+            }
+
+            // Calculate the intersection point using the parametric equation of the first ray.
+            // (Using either ray's parameters will yield the same point, so we pick one).
+            const intersectionX = x1 + t1 * dx1;
+            const intersectionZ = z1 + t1 * dz1;
+
+            return { x: intersectionX, z: intersectionZ };
+        }
+
+        /**
+         * Finds all unique intersection points among a list of records,
+         * where each record's ray is defined by their XZ position and horizontal angle.
+         *
+         * @param {Array<Object>} records An array of record objects. Each object must have:
+         * - `x`: number (record's X coordinate)
+         * - `z`: number (record's Z coordinate)
+         * - `angle`: number (record's horizontal angle in radians, Minecraft convention)
+         * @returns {Array<Object>} An array of intersection results. Each result object contains:
+         * - `record1`: Object (the first record in the combination)
+         * - `record2`: Object (the second record in the combination)
+         * - `intersectionPoint`: {x: number, z: number, weight: number} (the calculated intersection point with its calculated weight)
+         * Only combinations that result in a valid intersection are included.
+         */
+        function findAllRayIntersections(records) {
+            const intersections = [];
+            const ANGLE_EPSILON = 1e-3; // For checking near-parallel angles
+            const DIST_EPSILON = 1e-3; // For checking near-zero distance
+
+            // Iterate through every unique pair of records
+            for (let i = 0; i < records.length; i++) {
+                for (let j = i + 1; j < records.length; j++) {
+                    const record1 = records[i];
+                    const record2 = records[j];
+
+                    const intersection = getMinecraftXZRayIntersection(
+                        record1.x, record1.z, record1.angle,
+                        record2.x, record2.z, record2.angle
+                    );
+
+                    // If an intersection point is found (not null), calculate its weight
+                    if (intersection) {
+                        // Calculate distance between the two records
+                        const distBetweenRecords = euclideanDistance(record1, record2);
+
+                        // Calculate absolute difference in angles (normalized to 0 to PI)
+                        let angleDiff = Math.abs(record1.angle - record2.angle);
+                        // Ensure angleDiff is within [0, PI] for sin to represent 'difference'
+                        angleDiff = Math.min(angleDiff, Math.PI * 2 - angleDiff); // Handle wrap-around
+                        angleDiff = Math.min(angleDiff, Math.abs(angleDiff - Math.PI)); // Closer to 0 or PI means more parallel
+
+                        // Weighting factors:
+                        // 1. Distance between records: Higher distance -> higher weight
+                        //    Add a small epsilon to prevent division by zero if records are at same spot (though rays won't intersect then)
+                        const distanceFactor = distBetweenRecords > DIST_EPSILON ? distBetweenRecords : DIST_EPSILON;
+
+                        // 2. Angle similarity: abs(sin(angleDiff)) is 0 for parallel/anti-parallel, 1 for perpendicular
+                        //    Higher sin value (more perpendicular) -> higher weight.
+                        //    To "discriminate against records that are looking in a more similar direction",
+                        //    we want lower weight when `angleDiff` is close to 0 or PI.
+                        //    `Math.abs(Math.sin(angleDiff))` is small when `angleDiff` is close to 0 or PI.
+                        //    So, multiplying by `clampedAngleSimilarityInverseFactor` already achieves this.
+
+                        const angleSimilarityInverseFactor = Math.abs(Math.sin(angleDiff));
+                        // Ensure angleSimilarityInverseFactor is not zero to prevent zero weight if nearly parallel
+                        const clampedAngleSimilarityInverseFactor = angleSimilarityInverseFactor > ANGLE_EPSILON ? angleSimilarityInverseFactor : ANGLE_EPSILON;
+
+
+                        // Combine factors for the intersection point's weight
+                        // The product means that both factors need to be high for a high weight.
+                        const intersectionWeight = distanceFactor * clampedAngleSimilarityInverseFactor;
+
+                        intersections.push({
+                            record1: { x: record1.x, z: record1.z, angle: record1.angle, id: record1.id },
+                            record2: { x: record2.x, z: record2.z, angle: record2.angle, id: record2.id },
+                            intersectionPoint: { ...intersection, weight: intersectionWeight } // Add weight to intersectionPoint
+                        });
+                    }
+                }
+            }
+            return intersections;
+        }
+
+        // --- Visualization Logic ---
+
+        const canvas = document.getElementById('rayCanvas');
+        const ctx = canvas.getContext('2d');
+        const recordInputTextarea = document.getElementById('recordInputTextarea');
+        const drawButton = document.getElementById('drawButton');
+        const resetButton = document.getElementById('resetButton');
+        const medianPanel = document.getElementById('medianPanel');
+        const medianCoordinatesText = document.getElementById('medianCoordinates');
+
+        // Global variables for canvas transformation
+        let currentScale = 1;
+        let currentOffsetX = 0;
+        let currentOffsetY = 0;
+        const MIN_SCALE = 0.01;
+        const ZOOM_SENSITIVITY = 0.1; // How much zoom per scroll tick
+
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // Function to transform world coordinates to canvas coordinates
+        function worldToCanvas(worldX, worldZ) {
+            return {
+                x: worldX * currentScale + currentOffsetX,
+                // For Z, we now map directly to canvas Y, so positive Z goes down
+                y: worldZ * currentScale + currentOffsetY
+            };
+        }
+
+        // Function to transform canvas coordinates to world coordinates
+        function canvasToWorld(canvasX, canvasY) {
+            const worldX = (canvasX - currentOffsetX) / currentScale;
+            // For Z, we now map directly from canvas Y
+            const worldZ = (canvasY - currentOffsetY) / currentScale;
+            return { x: worldX, z: worldZ };
+        }
+
+        // Function to read record data from the textarea
+        function getRecordsFromInputs() {
+            const currentRecords = [];
+            const lines = recordInputTextarea.value.split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
+            let recordIdCounter = 1; // Reset ID counter for parsing
+
+            lines.forEach(line => {
+                let x, z, angleDegrees;
+
+                // Check if the line starts with "/" (new format)
+                if (line.startsWith('/')) {
+                    const parsed = parseTP(line);
+                    if (parsed) {
+                        x = parsed[0];
+                        z = parsed[1];
+                        angleDegrees = parsed[2];
+                    } else {
+                        console.warn(`Skipping malformed /tp command line: "${line}"`);
+                        return; // Skip this line
+                    }
+                } else {
+                    // Assume old format: X Z AngleInDegrees
+                    const parts = line.split(' ').map(part => part.trim()).filter(part => part !== '');
+                    if (parts.length === 3) {
+                        x = parseFloat(parts[0]);
+                        z = parseFloat(parts[1]);
+                        angleDegrees = parseFloat(parts[2]);
+                        if (isNaN(x) || isNaN(z) || isNaN(angleDegrees)) {
+                            console.warn(`Skipping malformed X Z AngleInDegrees line: "${line}"`);
+                            return; // Skip this line
+                        }
+                    } else {
+                        console.warn(`Skipping unrecognized line format: "${line}"`);
+                        return; // Skip this line
+                    }
+                }
+
+                // Apply the 5.6 degrees adjustment to the angle
+                const adjustedAngleDegrees = angleDegrees - 5.6;
+
+                currentRecords.push({
+                    id: `Record ${recordIdCounter++}`, // Auto-generate ID (used internally, not displayed)
+                    x: x,
+                    z: z,
+                    angle: degreesToRadians(adjustedAngleDegrees) // Convert adjusted degrees to radians
+                });
+            });
+            return currentRecords;
+        }
+
+        let cursorWorldCoords = null; // Stores world coordinates of the cursor
+
+        // Function to draw everything on the canvas
+        function drawVisualization() {
+            const records = getRecordsFromInputs();
+            const intersections = findAllRayIntersections(records);
+
+            // Collect all points (record positions + intersection points) to determine canvas scaling
+            let allPoints = [...records];
+            intersections.forEach(i => allPoints.push(i.intersectionPoint));
+
+            // Calculate geometric median of intersection points if available
+            let geometricMedianPoint = null;
+            if (intersections.length > 0) {
+                // Pass intersection points *with their calculated weights* to getGeometricMedian
+                const intersectionPointsWithWeights = intersections.map(i => i.intersectionPoint);
+                geometricMedianPoint = getGeometricMedian(intersectionPointsWithWeights);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            if (allPoints.length === 0) {
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '20px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('Enter record data to visualize rays and intersections', canvas.width / 2, canvas.height / 2);
+                medianPanel.classList.add('hidden');
+                return;
+            }
+
+            // Determine min/max coordinates for scaling
+            let minX = Infinity, maxX = -Infinity;
+            let minZ = Infinity, maxZ = -Infinity;
+
+            allPoints.forEach(p => {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minZ = Math.min(minZ, p.z);
+                maxZ = Math.max(maxZ, p.z);
+            });
+
+            // Add some padding to the bounds if no manual zoom/pan has occurred
+            // This logic needs to be careful not to override manual zoom/pan
+            // For initial fit, we calculate a fit-to-view scale and offset
+            let initialScale = 1;
+            let initialOffsetX = 0;
+            let initialOffsetY = 0;
+
+            const padding = 50; // pixels
+            const worldPadding = (maxX - minX + maxZ - minZ) / 4; // Dynamic padding based on world size
+
+            const paddedMinX = minX - worldPadding;
+            const paddedMaxX = maxX + worldPadding;
+            const paddedMinZ = minZ - worldPadding;
+            const paddedMaxZ = maxZ + worldPadding;
+
+            const worldWidth = paddedMaxX - paddedMinX;
+            const worldHeight = paddedMaxZ - paddedMinZ;
+
+            const scaleX = (canvas.width - 2 * padding) / worldWidth;
+            const scaleZ = (canvas.height - 2 * padding) / worldHeight;
+            initialScale = Math.min(scaleX, scaleZ);
+
+            initialOffsetX = padding - paddedMinX * initialScale;
+            initialOffsetY = padding - paddedMinZ * initialScale;
+
+            // Only apply initial fit if currentScale is still at its default (or reset)
+            if (currentScale === 1 && currentOffsetX === 0 && currentOffsetY === 0) {
+                currentScale = initialScale;
+                currentOffsetX = initialOffsetX;
+                currentOffsetY = initialOffsetY;
+            }
+
+
+            // Draw Grid (optional, but helpful for context)
+            ctx.strokeStyle = '#4a5568'; // Darker gray for grid
+            ctx.lineWidth = 0.5;
+            const gridSize = 10; // Draw grid lines every 10 units
+
+            // Draw vertical lines
+            for (let x = Math.floor(minX / gridSize) * gridSize; x <= Math.ceil(maxX / gridSize) * gridSize; x += gridSize) {
+                const start = worldToCanvas(x, minZ);
+                const end = worldToCanvas(x, maxZ);
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            }
+            // Draw horizontal lines
+            for (let z = Math.floor(minZ / gridSize) * gridSize; z <= Math.ceil(maxZ / gridSize) * gridSize; z += gridSize) {
+                const start = worldToCanvas(minX, z);
+                const end = worldToCanvas(maxX, z);
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            }
+
+            // Draw X and Z axes (positive directions) - DRAW FIRST for layering
+            const originCanvas = worldToCanvas(0, 0);
+
+            // Draw Positive X-axis (Red)
+            ctx.beginPath();
+            ctx.moveTo(originCanvas.x, originCanvas.y);
+            ctx.lineTo(canvas.width - padding, originCanvas.y); // Extend to near right edge
+            ctx.strokeStyle = '#FF0000'; // Red
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Positive Z-axis (Blue)
+            ctx.beginPath();
+            ctx.moveTo(originCanvas.x, originCanvas.y);
+            ctx.lineTo(originCanvas.x, canvas.height - padding); // Extend downwards (positive Z goes down in canvas)
+            ctx.strokeStyle = '#0000FF'; // Blue
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+
+            // Draw Records
+            records.forEach(record => {
+                const canvasPos = worldToCanvas(record.x, record.z);
+
+                // Draw record circle
+                ctx.beginPath();
+                ctx.arc(canvasPos.x, canvasPos.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#63b3ed'; // Blue for records
+                ctx.fill();
+                ctx.strokeStyle = '#2b6cb0';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw Ray
+                const dx = -Math.sin(record.angle); // Matches Minecraft convention in getMinecraftXZRayIntersection
+                const dz = Math.cos(record.angle);
+
+                // Always draw a very long ray
+                const rayLength = 1000000; // Increased length for "infinite" rays
+                const rayEndX = record.x + dx * rayLength;
+                const rayEndZ = record.z + dz * rayLength;
+
+                const canvasRayStart = worldToCanvas(record.x, record.z);
+                const canvasRayEnd = worldToCanvas(rayEndX, rayEndZ);
+
+                ctx.beginPath();
+                ctx.moveTo(canvasRayStart.x, canvasRayStart.y);
+                ctx.lineTo(canvasRayEnd.x, canvasRayEnd.y);
+                ctx.strokeStyle = '#a0aec0'; // Light gray for rays
+                ctx.lineWidth = 1.5;
+                ctx.stroke(); // Solid line
+            });
+
+            // Draw Intersections
+            intersections.forEach((result) => {
+                const canvasPos = worldToCanvas(result.intersectionPoint.x, result.intersectionPoint.z);
+
+                // Draw intersection circle
+                ctx.beginPath();
+                ctx.arc(canvasPos.x, canvasPos.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#f6ad55'; // Orange for intersections
+                ctx.fill();
+                ctx.strokeStyle = '#dd6b20';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Draw Geometric Median
+            if (geometricMedianPoint) {
+                const canvasPos = worldToCanvas(geometricMedianPoint.x, geometricMedianPoint.z);
+
+                // Draw geometric median marker (e.g., a star or cross)
+                ctx.beginPath();
+                ctx.moveTo(canvasPos.x, canvasPos.y - 10);
+                ctx.lineTo(canvasPos.x, canvasPos.y + 10);
+                ctx.moveTo(canvasPos.x - 10, canvasPos.y);
+                ctx.lineTo(canvasPos.x + 10, canvasPos.y);
+                ctx.strokeStyle = '#00FF00'; // Bright Lime Green for median
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#00FF00'; // Bright Lime Green for median label
+                ctx.font = '14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    `Median (${geometricMedianPoint.x.toFixed(1)}, ${geometricMedianPoint.z.toFixed(1)})`,
+                    canvasPos.x, canvasPos.y + 25
+                );
+
+                medianCoordinatesText.textContent = `X: ${geometricMedianPoint.x.toFixed(2)}, Z: ${geometricMedianPoint.z.toFixed(2)}`;
+                medianPanel.classList.remove('hidden');
+            } else {
+                medianCoordinatesText.textContent = 'No median calculated.';
+                medianPanel.classList.add('hidden');
+            }
+
+            // Draw cursor coordinates if available (always on top)
+            if (cursorWorldCoords) {
+                ctx.fillStyle = '#e2e8f0';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'right';
+                ctx.fillText(
+                    `Cursor: (${cursorWorldCoords.x.toFixed(1)}, ${cursorWorldCoords.z.toFixed(1)})`,
+                    canvas.width - 10, canvas.height - 10
+                );
+            }
+        }
+
+        // --- Event Listeners and Initial Setup ---
+
+        // Function to save textarea content to localStorage
+        function saveInputToLocalStorage() {
+            localStorage.setItem('minecraftRayVizInput', recordInputTextarea.value);
+        }
+
+        // Function to load textarea content from localStorage
+        function loadInputFromLocalStorage() {
+            const savedInput = localStorage.getItem('minecraftRayVizInput');
+            if (savedInput) {
+                recordInputTextarea.value = savedInput;
+            } else {
+                // Set initial content if nothing is in localStorage
+                recordInputTextarea.value = `0 1 185.6
+1 0 95.6
+-5 0 275.6
+0 -5 5.6
+/execute in minecraft:overworld run tp @s 380.74 -60.00 4772.29 -904.37 25.73`;
+            }
+        }
+
+        drawButton.addEventListener('click', drawVisualization);
+        resetButton.addEventListener('click', () => {
+            recordInputTextarea.value = `0 1 185.6
+1 0 95.6
+-5 0 275.6
+0 -5 5.6
+/execute in minecraft:overworld run tp @s 380.74 -60.00 4772.29 -904.37 25.73`; // Added new format example
+            saveInputToLocalStorage(); // Save the reset value
+            // Reset zoom/pan when resetting records
+            currentScale = 1;
+            currentOffsetX = 0;
+            currentOffsetY = 0;
+            drawVisualization();
+        });
+
+        // Add event listener to save input on every change
+        recordInputTextarea.addEventListener('input', saveInputToLocalStorage);
+
+
+        // Mouse Pan functionality
+        canvas.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+            canvas.classList.add('grabbing'); // Change cursor style
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            // Always update cursor world coordinates
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = event.clientX - rect.left;
+            const canvasY = event.clientY - rect.top;
+            cursorWorldCoords = canvasToWorld(canvasX, canvasY);
+
+            if (isDragging) {
+                const deltaX = event.clientX - lastMouseX;
+                const deltaY = event.clientY - lastMouseY;
+
+                currentOffsetX += deltaX;
+                currentOffsetY += deltaY;
+
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
+            }
+            drawVisualization(); // Redraw to update cursor coordinates and/or pan
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.classList.remove('grabbing'); // Reset cursor style
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false; // Stop dragging if mouse leaves canvas
+            canvas.classList.remove('grabbing'); // Reset cursor style
+            cursorWorldCoords = null; // Clear cursor coords when mouse leaves canvas
+            drawVisualization(); // Redraw to remove cursor coords
+        });
+
+        // Zoom functionality
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault(); // Prevent page scrolling
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            // Get world coordinates under mouse before zoom
+            const worldXBefore = (mouseX - currentOffsetX) / currentScale;
+            const worldZBefore = (mouseY - currentOffsetY) / currentScale;
+
+            // Calculate new scale
+            let newScale = currentScale * (1 + (event.deltaY < 0 ? ZOOM_SENSITIVITY : -ZOOM_SENSITIVITY));
+            newScale = Math.max(MIN_SCALE, newScale); // Only clamp min scale, remove max scale clamp
+
+            // Calculate new offset to zoom around mouse
+            currentOffsetX = mouseX - worldXBefore * newScale;
+            currentOffsetY = mouseY - worldZBefore * newScale;
+            currentScale = newScale;
+
+            drawVisualization();
+        });
+
+
+        // Draw on window load
+        window.onload = () => {
+            loadInputFromLocalStorage(); // Load saved input
+            drawVisualization();
+        };
+
+    </script>
+</body>
+</html>
