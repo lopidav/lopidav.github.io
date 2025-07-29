@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YTT Foreground Opacity Cleaner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #2d3748;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            width: 95%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #4a5568;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: #4299e1;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            max-width: 300px;
+        }
+        button:hover {
+            background-color: #3182ce;
+        }
+        button:disabled {
+            background-color: #6b7280;
+            cursor: not-allowed;
+        }
+        h1 {
+            text-align: center;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #90cdf4;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            width: 100%;
+            text-align: left;
+        }
+        .info-box {
+            background-color: #2a4365;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #a0aec0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <h1 class="text-3xl font-bold text-blue-400">YTT Foreground Opacity Cleaner</h1>
+
+    <div class="container">
+        <div class="info-box">
+            <p>Paste your YTT (YouTube Timed Text) XML content into the "Input YTT" area below.</p>
+            <p class="mt-2">This script will remove any <code>&lt;p&gt;</code> tags that contain <strong>only</strong> hidden content. Content is considered hidden if:</p>
+            <ul class="list-disc list-inside ml-4 mt-1">
+                <li>It's a <code>&lt;s&gt;</code> tag with an effective <code>fo="0"</code> (fully transparent).</li>
+                <li>Any direct text content within the <code>&lt;p&gt;</code> tag, or text content within an <code>&lt;s&gt;</code> tag, consists <strong>only</strong> of whitespace characters (including zero-width spaces). The <code>█</code> (full block) character is considered meaningful <strong>unless</strong> its associated <code>&lt;s&gt;</code> tag has an effective <code>fo="0"</code>.</li>
+            </ul>
+            <p class="mt-2">Click "Clean YTT" to process the content. The cleaned output will appear in the "Output YTT" area.</p>
+        </div>
+
+        <label for="inputYTT" class="section-title">Input YTT:</label>
+        <textarea id="inputYTT" placeholder="Paste your YTT XML content here..."></textarea>
+
+        <button id="cleanButton">Clean YTT</button>
+
+        <label for="outputYTT" class="section-title">Output YTT:</label>
+        <textarea id="outputYTT" readonly placeholder="Cleaned YTT XML will appear here..."></textarea>
+    </div>
+
+    <script>
+        document.getElementById('cleanButton').addEventListener('click', function() {
+            const inputYTT = document.getElementById('inputYTT').value;
+            const outputYTT = document.getElementById('outputYTT');
+
+            if (!inputYTT.trim()) {
+                outputYTT.value = "Please paste YTT XML content into the input area.";
+                return;
+            }
+
+            try {
+                const cleanedContent = cleanYTT(inputYTT);
+                outputYTT.value = cleanedContent;
+            } catch (error) {
+                outputYTT.value = "Error processing YTT: " + error.message + "\n\nPlease ensure your input is valid XML.";
+                console.error("YTT processing error:", error);
+            }
+        });
+
+        /**
+         * Checks if a given text string consists only of whitespace characters (including zero-width space).
+         * This now strictly means empty or only spaces/tabs/newlines/zero-width spaces.
+         * @param {string} text The text content to check.
+         * @returns {boolean} True if the text is considered "non-meaningful" (whitespace only), false otherwise.
+         */
+        function isWhitespaceOnlyText(text) {
+            // This regex matches any whitespace character (space, tab, form feed, line feed,
+            // carriage return, vertical tab, non-breaking space, and other Unicode spaces).
+            // It also includes the zero-width space (U+200B).
+            return text.split('').every(char => /\s/.test(char) || char.charCodeAt(0) === 0x200B);
+        }
+
+        /**
+         * Cleans the YTT content by removing <p> tags that only contain
+         * <s> elements with effective foreground_opacity="0" or whitespace-only content.
+         * @param {string} yttContent The raw YTT XML string.
+         * @returns {string} The cleaned YTT XML string.
+         */
+        function cleanYTT(yttContent) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(yttContent, "application/xml");
+
+            // 1. Parse pen definitions from the head
+            const penDefinitions = new Map(); // Map<string, string> where key is pen ID, value is fo
+            const headElement = xmlDoc.querySelector('head');
+            if (headElement) {
+                const penElements = headElement.querySelectorAll('pen');
+                penElements.forEach(pen => {
+                    const id = pen.getAttribute('id');
+                    const fo = pen.getAttribute('fo');
+                    if (id !== null && fo !== null) {
+                        penDefinitions.set(id, fo);
+                    }
+                });
+            }
+
+            // Helper function to determine if an <s> element is effectively hidden based on fo
+            // This now *only* considers 'fo=0' for hidden status.
+            const isSElementFoTransparent = (sElement) => {
+                const inlineFo = sElement.getAttribute('fo');
+                let effectiveFo;
+
+                if (inlineFo !== null) {
+                    effectiveFo = parseInt(inlineFo, 10);
+                } else {
+                    const penId = sElement.getAttribute('p');
+                    if (penId !== null && penDefinitions.has(penId)) {
+                        effectiveFo = parseInt(penDefinitions.get(penId), 10);
+                    } else {
+                        // Default to visible (255) if pen not found or fo not specified
+                        effectiveFo = 255;
+                    }
+                }
+                return effectiveFo === 0;
+            };
+
+            // 2. Iterate through all <p> elements in the body
+            const pElements = Array.from(xmlDoc.querySelectorAll('body p'));
+
+            pElements.forEach(p => {
+                let hasVisibleContent = false; // Flag to determine if <p> should be kept
+
+                for (let i = 0; i < p.childNodes.length; i++) {
+                    const child = p.childNodes[i];
+
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        // A direct text node is visible if it contains any non-whitespace characters.
+                        // This includes '█' characters.
+                        if (!isWhitespaceOnlyText(child.textContent)) {
+                            hasVisibleContent = true;
+                            break;
+                        }
+                    } else if (child.nodeType === Node.ELEMENT_NODE) {
+                        if (child.tagName.toLowerCase() === 's') {
+                            const foIsTransparent = isSElementFoTransparent(child);
+                            const sTextContent = child.textContent;
+
+                            // An <s> tag contributes to visible content if:
+                            // 1. Its 'fo' is NOT transparent (fo != 0) AND its text content is NOT whitespace only.
+                            // OR
+                            // 2. Its 'fo' IS transparent (fo == 0) BUT its text content is NOT whitespace only.
+                            //    This second part is the key change: if fo=0, it's always hidden.
+                            //    So, the only way an <s> tag is visible is if its fo is NOT 0
+                            //    AND its text content is NOT whitespace only.
+                            if (!foIsTransparent && !isWhitespaceOnlyText(sTextContent)) {
+                                hasVisibleContent = true;
+                                break;
+                            }
+                        } else {
+                            // Any other element type (e.g., <br/>, <ws>, <wp>) is considered visible content.
+                            hasVisibleContent = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If no visible content was found after checking all children, then remove the <p> tag.
+                if (!hasVisibleContent) {
+                    if (p.parentNode) {
+                        p.parentNode.removeChild(p);
+                    }
+                }
+            });
+
+            // Serialize the modified XML document back to a string
+            const serializer = new XMLSerializer();
+            return serializer.serializeToString(xmlDoc);
+        }
+
+        // Example YTT content for testing (you can replace this)
+        const exampleYTT = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<timedtext format="3">
+    <head>
+        <ws id="0" t="1" ts="1" />
+        <wp id="0" ap="0" ah="0" av="0" />
+        <pen id="1" fo="255" />   <!-- Opaque pen -->
+        <pen id="2" fo="0" />     <!-- Hidden pen -->
+        <pen id="3" fo="128" />   <!-- Semi-transparent pen -->
+        <pen id="4" fo="254" />   <!-- Opaque pen (like in user's file) -->
+        <pen id="5" fo="0" />     <!-- Hidden pen (like in user's file) -->
+        <pen id="1043" fo="254" /> <!-- Opaque pen from user's file -->
+    </head>
+    <body>
+        <p begin="0s" end="1s">
+            <s p="1">Hello world.</s>
+        </p>
+        <p begin="1s" end="2s">
+            <s p="2">This text is hidden via pen.</s>
+        </p>
+        <p begin="2s" end="3s">
+            <s fo="0">Inline hidden text.</s>
+        </p>
+        <p begin="3s" end="4s">
+            <s p="1" fo="0">Visible pen, but inline hidden.</s>
+        </p>
+        <p begin="4s" end="5s">
+            <s p="2" fo="255">Hidden pen, but inline visible.</s>
+        </p>
+        <p begin="5s" end="6s">
+            <s>No pen, no inline fo. Default visible.</s>
+        </p>
+        <p begin="6s" end="7s">
+            <s p="2"></s>
+            <s fo="0"></s>
+        </p>
+        <p begin="7s" end="8s">
+            <s p="2">Some whitespace only: </s>
+            <s fo="0">   </s>
+        </p>
+        <p begin="8s" end="9s">
+            <s p="2">Line 1
+            </s>
+            <s fo="0">Line 2
+            </s>
+            <s p="2">Line 3</s>
+        </p>
+        <p begin="9s" end="10s">
+            This is a
+            <s fo="0">hidden</s>
+            line with mixed content.
+        </p>
+        <p begin="10s" end="11s">
+            <s p="2">Only hidden spans and
+            </s>
+            <s fo="0">line breaks.
+            </s>
+        </p>
+        <p begin="11s" end="12s">
+            <s p="2">
+                <s p="2">Nested hidden spans.</s>
+            </s>
+        </p>
+        <p begin="12s" end="13s">
+            <br/>
+            <s p="2">Hidden text after break.</s>
+        </p>
+        <p begin="13s" end="14s">
+            <s p="3">Semi-transparent text.</s>
+        </p>
+        <p begin="14s" end="15s"></p> <!-- Empty p tag -->
+        <p begin="15s" end="16s">   </p> <!-- Whitespace only p tag -->
+        <p begin="16s" end="17s">
+            <s p="5">​</s>​<s p="1043">​ ​█</s><s p="5">​</s> <!-- This is the problematic p tag from your file -->
+        </p>
+        <p begin="17s" end="18s">
+            <s p="1043">█</s><s p="1043">█</s><s p="1043">█</s> <!-- Only block characters with opaque pen - SHOULD NOW BE KEPT -->
+        </p>
+        <p begin="18s" end="19s">
+            <s p="1043">Some actual text here.</s> <!-- Should NOT be removed -->
+        </p>
+    </body>
+</timedtext>`;
+        document.getElementById('inputYTT').value = exampleYTT;
+    </script>
+</body>
+</html>

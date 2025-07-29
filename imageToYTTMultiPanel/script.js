@@ -4,8 +4,8 @@ $( document ).ready(function() {
 })
 
 
-const width = 60; //width and height of the subtitles 
-const height = 40;
+const width = 61; //width and height of the subtitles 
+const height = 50;
 
 async function toBase64(file) {
   return new Promise((resolve, reject) => {
@@ -27,6 +27,7 @@ async function imageUploaded() {
 
   var img = new Image();
   var arr = new Array(height).fill``.map(_=>[]);
+  var alphaArr = new Array(height).fill``.map(_=>[]);
   img.onload = function () {
       console.log(this);
 
@@ -46,7 +47,8 @@ async function imageUploaded() {
         const green = data[i + 1];
         const blue = data[i + 2];
         const alpha = data[i + 3];
-        arr[k].push(rgbToHex(red,green,blue).toUpperCase())
+        arr[k].push(rgbToHex(red,green,blue).toUpperCase()+alpha)
+        // arr[k][arr[k].length-1].alpha = alpha;
         j++;
         if (j>=width){j=0;k++;}
       }
@@ -58,22 +60,23 @@ async function imageUploaded() {
 async function buttonPress(arr, startTime, endTime) {
 
   if (!arr) {
-    arr = new Array(height).fill``.map((_,i)=>new Array(width).fill``.map((_,j)=>rgbToHex(255*j/width|0,0,255/height*i|0).toUpperCase()))
+    arr = new Array(height).fill``.map((_,i)=>new Array(width).fill``.map((_,j)=>rgbToHex(255*j/width|0,0,255/height*i|0).toUpperCase()+255))
   }
   if (!startTime) startTime = 1;
   if (!endTime) endTime = 100000;
   const output = document.getElementById("output");
   const colorsArray = [];
-  arr.forEach(x=>x.forEach(y=>{
+  arr.forEach((x,i)=>x.forEach((y,j)=>{
     if (!colorsArray.includes(y)) colorsArray.push(y);
   }))
+  console.log(arr);
   output.innerHTML = `<?xml version="1.0" encoding="utf-8"?>
 <timedtext format="3">
 <head>
 <wp id="0" ap="7" ah="0" av="0" />
 ${
-  `<wp id="1" ap="4" ah="50" av="45" />`+
-  `<wp id="2" ap="4" ah="50" av="45" />`
+  `<wp id="1" ap="4" ah="45" av="35" />`+
+  `<wp id="2" ap="4" ah="45" av="35" />`
 //   new Array(height).fill``.map((x,i)=>
 //     `<wp id="${i+1}" ap="4" ah="${0}}" av="${i*2+52-(height/2|0)*2}" />`
 //   ).join`
@@ -91,7 +94,7 @@ ${
 <pen id="1" sz="100" fc="#A0AAB4" fo="0" bo="0" />
 ${
   colorsArray.map((x,i)=>
-    `<pen id="${i+2}" sz="50" fc="${x}" fo="255" bo="0"/>`
+    `<pen id="${i+2}" sz="50" fc="${[...x].slice(0,7).join``}" fo="${[...x].slice(7).join``}" bo="0"/>`
   ).join`
 `
 //   new Array(width*height).fill``.map((x,i)=>
@@ -104,7 +107,7 @@ ${
   `<p t="${startTime}" d="${endTime-startTime}" wp="1" ws="1"><s p="1">​</s>
 ${
   new Array(height/2|0).fill``.map((_,i) =>
-      new Array(width).fill``.map((_,j) =>`<s p="${colorsArray.indexOf(arr[i*2][j])+2}">█</s>`).join``
+      new Array(width).fill``.map((_,j) =>`<s p="${(colorsArray.indexOf(arr[i*2][j])+2)}">▀</s>`).join``
      )
   .join`
 `}
@@ -113,7 +116,7 @@ ${
 +`<p t="${startTime+1}" d="${endTime-startTime-1}" wp="1" ws="1"><s p="1">​</s>
 ${
   new Array(height/2|0).fill``.map((_,i) =>
-      new Array(width).fill``.map((_,j) =>`<s p="${colorsArray.indexOf(arr[i*2+1][j])+2}">▄</s>`).join``
+      new Array(width).fill``.map((_,j) =>`<s p="${(colorsArray.indexOf(arr[i*2+1][j])+2)}">▄</s>`).join``
      )
   .join`
 `}
@@ -159,21 +162,24 @@ return "&H"+ componentToHex(255-a)+"&";
 </timedtext>`
 
 
-function downScaleCanvas(canvas,desieredWidth,desieredHeight)
+function downScaleCanvas(canvas,desieredWidth,desieredHeight, oneStep = false)
 {
-  var ctx = canvas.getContext("2d", {willReadFrequently: true});
+
+  var ctx = canvas.getContext("2d", {willReadFrequently: true, alpha:true});
   if (desieredWidth > canvas.width) return;
   if (desieredHeight > canvas.height) return;
-  var data = ctx.getImageData( 0, 0, canvas.width, canvas.height );
+  var data = ctx.getImageData( 0, 0, canvas.width, canvas.height);
 
   if (canvas.width / canvas.height != desieredWidth/desieredHeight) {
     if (canvas.width / canvas.height >= desieredWidth/desieredHeight) {
+  ctx.globalCompositeOperation = "copy";
       ctx.drawImage(canvas,0,0, canvas.height*desieredWidth/desieredHeight, canvas.height)
       data = ctx.getImageData( 0, 0, canvas.width, canvas.height );
       canvas.width = canvas.height*desieredWidth/desieredHeight;
       ctx.putImageData( data, 0, 0, 0,0,canvas.width, canvas.height );
     }
     else {
+  ctx.globalCompositeOperation = "copy";
       ctx.drawImage(canvas,0,0, canvas.width, canvas.width*desieredHeight/desieredWidth)
       data = ctx.getImageData( 0, 0, canvas.width, canvas.height );
       canvas.height = canvas.width*desieredHeight/desieredWidth;
@@ -184,12 +190,14 @@ function downScaleCanvas(canvas,desieredWidth,desieredHeight)
   while (desieredWidth<canvas.width)
   {
     if (desieredWidth/canvas.width > scaleStep) {
+  ctx.globalCompositeOperation = "copy";
       ctx.drawImage(canvas,0,0, desieredWidth, desieredHeight)
       data = ctx.getImageData( 0, 0, canvas.width, canvas.height );
       canvas.width = desieredWidth;
       canvas.height = desieredHeight;
       ctx.putImageData( data, 0, 0, 0,0,canvas.width, canvas.height );
     } else {
+  ctx.globalCompositeOperation = "copy";
       ctx.drawImage(canvas,0,0, canvas.width*scaleStep|0, canvas.height*scaleStep|0)
       data = ctx.getImageData( 0, 0, canvas.width, canvas.height );
       canvas.width = canvas.width*scaleStep|0;
