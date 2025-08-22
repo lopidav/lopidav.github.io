@@ -145,6 +145,9 @@ function filterLeaderboards() {
       case "mapId":
         leaderboards = leaderboards.filter(x=>x.mapId == value);
         break;
+      case "mapPack":
+        leaderboards = leaderboards.filter(x=>x.mapPack == value);
+        break;
     }
   });
 
@@ -172,12 +175,17 @@ function displayLeaderboards() {
     row.appendChild(temp)
 
     row.appendChild(document.createElement('td')).innerText = x.time;
-    row.appendChild(document.createElement('td')).innerText = `${x.packName} by ${x.packAuthor}`;
 
     let mapNameButton = document.createElement('button');
     mapNameButton.innerText = x.mapName;
     mapNameButton.addEventListener('click', function(){
       filterLeaderboardsByOneField("mapId", x.mapId);
+    });
+    
+    let mapPackButton = document.createElement('button');
+    mapPackButton.innerText = `${x.packName} by ${x.packAuthor}`;
+    mapPackButton.addEventListener('click', function(){
+      filterLeaderboardsByOneField("mapPack", x.mapPack);
     });
 
     temp = document.createElement('td');
