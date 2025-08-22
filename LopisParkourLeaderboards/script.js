@@ -172,6 +172,7 @@ function displayLeaderboards() {
     row.appendChild(temp)
 
     row.appendChild(document.createElement('td')).innerText = x.time;
+    row.appendChild(document.createElement('td')).innerText = `${x.packName} by ${x.packAuthor}`;
 
     let mapNameButton = document.createElement('button');
     mapNameButton.innerText = x.mapName;
