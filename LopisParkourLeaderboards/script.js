@@ -44,7 +44,7 @@ class Record {
     if (this.mapId == "") return;
     let mapAll = this.mapId.split`\\`;
     if (!mapAll[1]) {this._mapNumber = Infinity;this._mapName = this.mapId;this._packAuthor="";this._packName="";}
-    [this._packAuthor, this._packName]= mapAll[0].split`_`;
+    [this._packAuthor, this._packName]= mapAll[0].split`-`;
     if (!this._packName) this._packName = mapAll[0];
     this._packName = this._packName.replace(/_/gi, " ");
     this._mapName = mapAll[1].replace(/(^prk_|\.map$)/gmi,"").replace(/_/gi," ");
