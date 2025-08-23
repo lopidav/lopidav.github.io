@@ -145,8 +145,8 @@ function filterLeaderboards() {
       case "mapId":
         leaderboards = leaderboards.filter(x=>x.mapId == value);
         break;
-      case "mapPack":
-        leaderboards = leaderboards.filter(x=>x.mapPack == value);
+      case "packName":
+        leaderboards = leaderboards.filter(x=>x.packName == value);
         break;
     }
   });
@@ -188,7 +188,7 @@ function displayLeaderboards() {
     let mapPackButton = document.createElement('button');
     mapPackButton.innerText = `${x.packName} by ${x.packAuthor}`;
     mapPackButton.addEventListener('click', function(){
-      filterLeaderboardsByOneField("mapPack", x.mapPack);
+      filterLeaderboardsByOneField("packName", x.packName);
     });
     temp = document.createElement('td');
     temp.appendChild(mapPackButton);
