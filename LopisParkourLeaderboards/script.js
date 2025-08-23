@@ -181,16 +181,19 @@ function displayLeaderboards() {
     mapNameButton.addEventListener('click', function(){
       filterLeaderboardsByOneField("mapId", x.mapId);
     });
+    temp = document.createElement('td');
+    temp.appendChild(mapNameButton);
+    row.appendChild(temp);
     
     let mapPackButton = document.createElement('button');
     mapPackButton.innerText = `${x.packName} by ${x.packAuthor}`;
     mapPackButton.addEventListener('click', function(){
       filterLeaderboardsByOneField("mapPack", x.mapPack);
     });
-
     temp = document.createElement('td');
-    temp.appendChild(mapNameButton);
+    temp.appendChild(mapPackButton);
     row.appendChild(temp);
+
     
     row.appendChild(document.createElement('td')).innerText = x.date.toLocaleString();
   });
