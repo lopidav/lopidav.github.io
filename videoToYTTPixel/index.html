@@ -1,0 +1,22 @@
+<html>
+ <head>
+  <meta charset="utf-8" name="viewport" content="user-scalable=no" />
+  <link href="./style.css" rel="stylesheet">
+  <script type="text/javascript" src="../jquery.js"></script>
+  <script type="text/javascript" src="../math.min.js"></script>
+  <script type="text/javascript" src="./script.js"></script>
+ </head>
+ <body>
+  upload video, wait till there's a bunch of text in the output text area <br/>
+video: <input type="file" id="inputVideo" onchange="videoUploaded()" /><br/>
+fps: <input id="inputFps" type="number"  value="6"><br/>
+width: <input id="inputWidth" type="number" value="70"><br/>
+height: <input id="inputHeight" type="number" value="46"><br/>
+divide color count by 2 how many times: <input id="inputDivideColorsBy2ToThePowOf" type="number" value="2"><br/>
+start time in sec: <input id="inputStartFromTimeSec" type="number" value="2"><br/>
+<div id="status"></div>
+<canvas id="secondaryCanvas"></canvas>
+<canvas id="thirdaryCanvas"></canvas>
+<video id="videoInput"></video>
+ </body>
+</html>
