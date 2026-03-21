@@ -3,89 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord GIF Fixer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <title>Surgical GIF Repair (Bulk Mode)</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #36393f; color: white; margin: 0; }
-        .card { background: #2f3136; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; }
-        input { margin: 20px 0; color: #b9bbbe; }
-        button { background: #5865f2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:disabled { background: #4f545c; cursor: not-allowed; }
-        #status { margin-top: 15px; font-size: 0.9rem; color: #3ba55e; }
-        .preview { max-width: 100%; margin-top: 20px; border-radius: 4px; display: none; }
+        :root {
+            --discord-blurple: #5865f2;
+            --discord-dark: #36393f;
+            --discord-card: #2f3136;
+            --discord-text: #dcddde;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: var(--discord-dark);
+            color: var(--discord-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: var(--discord-card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #fff; }
+        p { font-size: 0.9rem; margin-bottom: 1.5rem; opacity: 0.8; line-height: 1.4; }
+        .drop-zone {
+            border: 2px dashed #4f545c;
+            border-radius: 8px;
+            padding: 2.5rem 1rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: block;
+        }
+        .drop-zone:hover { border-color: var(--discord-blurple); background: rgba(88, 101, 242, 0.05); }
+        input[type="file"] { display: none; }
+        .btn {
+            background: var(--discord-blurple);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn:hover:not(:disabled) { background: #4752c4; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status {
+            margin-top: 1.2rem;
+            font-size: 0.85rem;
+            min-height: 1.2rem;
+            font-weight: 500;
+        }
+        .success { color: #3ba55e; }
+        .error { color: #ed4245; }
+        .file-list {
+            text-align: left;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            padding: 5px;
+            display: none;
+        }
+        .file-item {
+            padding: 4px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Discord GIF Fixer</h2>
-    <p>Upload a GIF that won't load on Discord to "refurbish" its headers.</p>
-    
-    <input type="file" id="upload" accept="image/gif">
-    <br>
-    <button id="fixBtn" disabled>Fix & Download</button>
+<div class="container">
+    <h1>Surgical GIF Repair</h1>
+    <p>Select multiple GIFs to rebuild their binary structures block-by-block. This fixes Discord "Broken Image" errors.</p>
+
+    <label class="drop-zone" id="drop-zone">
+        <span id="file-label">Drop GIFs here or Click to Select</span>
+        <input type="file" id="file-input" accept="image/gif" multiple>
+    </label>
+
+    <div id="file-list" class="file-list"></div>
+
+    <button id="process-btn" class="btn" disabled>Repair All Files</button>
     
     <div id="status"></div>
-    <img id="preview" class="preview" alt="Preview">
 </div>
 
 <script>
-    const upload = document.getElementById('upload');
-    const fixBtn = document.getElementById('fixBtn');
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const processBtn = document.getElementById('process-btn');
     const status = document.getElementById('status');
-    const preview = document.getElementById('preview');
+    const fileLabel = document.getElementById('file-label');
+    const fileListContainer = document.getElementById('file-list');
 
-    upload.addEventListener('change', () => {
-        if (upload.files.length > 0) fixBtn.disabled = false;
-    });
+    let selectedFiles = [];
 
-    fixBtn.addEventListener('click', async () => {
-        const file = upload.files[0];
-        status.innerText = "Analyzing and rebuilding...";
-        fixBtn.disabled = true;
+    fileInput.onchange = (e) => handleFiles(e.target.files);
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#5865f2'; };
+    dropZone.ondragleave = () => { dropZone.style.borderColor = '#4f545c'; };
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#4f545c';
+        handleFiles(e.dataTransfer.files);
+    };
 
-        try {
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            
-            img.onload = () => {
-                // We use a canvas to redraw the GIF frames, 
-                // effectively stripping corrupt metadata and fixing headers.
-                const gif = new GIF({
-                    workers: 2,
-                    quality: 10,
-                    width: img.width,
-                    height: img.height,
-                    workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
-                });
-
-                // Add the image as a single frame (or use a library like 'omggif' for multi-frame repair)
-                // For a quick 'conversion' fix, redrawing is the most reliable.
-                gif.addFrame(img, {copy: true, delay: 100});
-
-                gif.on('finished', (blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = "fixed_" + file.name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    
-                    preview.src = url;
-                    preview.style.display = 'block';
-                    status.innerText = "Done! Fixed GIF downloaded.";
-                    fixBtn.disabled = false;
-                });
-
-                gif.render();
-            };
-        } catch (err) {
-            status.innerText = "Error: Could not process file.";
-            console.error(err);
-            fixBtn.disabled = false;
+    function handleFiles(files) {
+        if (!files || files.length === 0) return;
+        
+        selectedFiles = Array.from(files).filter(f => f.type === 'image/gif');
+        
+        if (selectedFiles.length === 0) {
+            updateStatus("No valid GIF files selected.", "error");
+            processBtn.disabled = true;
+            fileListContainer.style.display = 'none';
+            return;
         }
-    });
+
+        fileLabel.innerText = `${selectedFiles.length} file(s) selected`;
+        processBtn.disabled = false;
+        
+        // Update visual list
+        fileListContainer.innerHTML = '';
+        fileListContainer.style.display = 'block';
+        selectedFiles.forEach(file => {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.innerHTML = `<span>${file.name}</span> <span>${(file.size / 1024).toFixed(1)} KB</span>`;
+            fileListContainer.appendChild(div);
+        });
+
+        updateStatus(`Ready to repair ${selectedFiles.length} GIFs.`, "success");
+    }
+
+    function updateStatus(text, type = "") {
+        status.innerText = text;
+        status.className = type;
+    }
+
+    async function repairGif(file) {
+        const buffer = await file.arrayBuffer();
+        const view = new Uint8Array(buffer);
+        const result = [];
+        
+        // 1. Header (GIF89a)
+        if (view.length < 13) throw new Error("File too small");
+        result.push(...[0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+        
+        // 2. Logical Screen Descriptor
+        for (let i = 6; i < 13; i++) result.push(view[i]);
+        
+        let pos = 13;
+        
+        // 3. Global Color Table
+        const packedField = view[10];
+        const hasGCT = (packedField & 0x80) !== 0;
+        if (hasGCT) {
+            const gctSize = 3 * Math.pow(2, (packedField & 0x07) + 1);
+            for (let i = 0; i < gctSize; i++) result.push(view[pos++]);
+        }
+
+        // 4. Data Blocks loop
+        let safety = 0;
+        while (pos < view.length && safety < 50000) {
+            safety++;
+            const sentinel = view[pos++];
+            
+            if (sentinel === 0x3B) { // Trailer
+                break; 
+            } else if (sentinel === 0x21) { // Extension
+                const label = view[pos++];
+                result.push(0x21, label);
+                while (true) {
+                    const blockSize = view[pos++];
+                    result.push(blockSize);
+                    if (blockSize === 0) break;
+                    for (let i = 0; i < blockSize; i++) result.push(view[pos++]);
+                }
+            } else if (sentinel === 0x2C) { // Image Descriptor
+                result.push(0x2C);
+                for (let i = 0; i < 9; i++) result.push(view[pos++]);
+                const localPacked = view[pos - 1];
+                if ((localPacked & 0x80) !== 0) {
+                    const lctSize = 3 * Math.pow(2, (localPacked & 0x07) + 1);
+                    for (let i = 0; i < lctSize; i++) result.push(view[pos++]);
+                }
+                result.push(view[pos++]); // LZW Code Size
+                while (true) {
+                    const blockSize = view[pos++];
+                    result.push(blockSize);
+                    if (blockSize === 0) break;
+                    for (let i = 0; i < blockSize; i++) result.push(view[pos++]);
+                }
+            }
+        }
+        
+        result.push(0x3B); // Clean trailer
+        return new Uint8Array(result);
+    }
+
+    processBtn.onclick = async () => {
+        if (selectedFiles.length === 0) return;
+        processBtn.disabled = true;
+        
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            updateStatus(`Repairing (${i + 1}/${selectedFiles.length}): ${file.name}...`);
+            
+            try {
+                const repairedData = await repairGif(file);
+                const blob = new Blob([repairedData], { type: 'image/gif' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "fixed_" + file.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                // Cleanup URL to manage memory
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to repair ${file.name}:`, err);
+                failCount++;
+            }
+        }
+
+        updateStatus(`Finished! Success: ${successCount}, Failed: ${failCount}`, successCount > 0 ? "success" : "error");
+        processBtn.disabled = false;
+        selectedFiles = [];
+        fileLabel.innerText = "Drop GIFs here or Click to Select";
+        fileListContainer.style.display = 'none';
+    };
 </script>
 
 </body>
