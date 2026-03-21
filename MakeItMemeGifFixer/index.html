@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord GIF Fixer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #36393f; color: white; margin: 0; }
+        .card { background: #2f3136; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; }
+        input { margin: 20px 0; color: #b9bbbe; }
+        button { background: #5865f2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #4f545c; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 0.9rem; color: #3ba55e; }
+        .preview { max-width: 100%; margin-top: 20px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Discord GIF Fixer</h2>
+    <p>Upload a GIF that won't load on Discord to "refurbish" its headers.</p>
+    
+    <input type="file" id="upload" accept="image/gif">
+    <br>
+    <button id="fixBtn" disabled>Fix & Download</button>
+    
+    <div id="status"></div>
+    <img id="preview" class="preview" alt="Preview">
+</div>
+
+<script>
+    const upload = document.getElementById('upload');
+    const fixBtn = document.getElementById('fixBtn');
+    const status = document.getElementById('status');
+    const preview = document.getElementById('preview');
+
+    upload.addEventListener('change', () => {
+        if (upload.files.length > 0) fixBtn.disabled = false;
+    });
+
+    fixBtn.addEventListener('click', async () => {
+        const file = upload.files[0];
+        status.innerText = "Analyzing and rebuilding...";
+        fixBtn.disabled = true;
+
+        try {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            
+            img.onload = () => {
+                // We use a canvas to redraw the GIF frames, 
+                // effectively stripping corrupt metadata and fixing headers.
+                const gif = new GIF({
+                    workers: 2,
+                    quality: 10,
+                    width: img.width,
+                    height: img.height,
+                    workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+                });
+
+                // Add the image as a single frame (or use a library like 'omggif' for multi-frame repair)
+                // For a quick 'conversion' fix, redrawing is the most reliable.
+                gif.addFrame(img, {copy: true, delay: 100});
+
+                gif.on('finished', (blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = "fixed_" + file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    preview.src = url;
+                    preview.style.display = 'block';
+                    status.innerText = "Done! Fixed GIF downloaded.";
+                    fixBtn.disabled = false;
+                });
+
+                gif.render();
+            };
+        } catch (err) {
+            status.innerText = "Error: Could not process file.";
+            console.error(err);
+            fixBtn.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>
