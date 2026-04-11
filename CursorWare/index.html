@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Cursor Party</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; }
+        
+        /* The custom cursor element for other players */
+        .remote-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* Crucial: lets you click through other people's cursors */
+            z-index: 50;
+            will-change: transform;
+            /* Hide by default until we get a coordinate */
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .cursor-icon {
+            width: 24px;
+            height: 24px;
+            /* Filter to add a nice drop shadow to the SVG */
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));
+        }
+
+        .cursor-label {
+            position: absolute;
+            top: 20px;
+            left: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            font-weight: bold;
+        }
+
+        /* Lobby transitions */
+        #lobby { transition: opacity 0.3s ease; }
+        .hidden-fade { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <!-- LOBBY UI -->
+    <div id="lobby" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-50">
+        <div class="bg-slate-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-slate-700">
+            <h1 class="text-3xl font-bold mb-2 text-indigo-400">Cursor Party</h1>
+            <p class="text-slate-400 mb-8 text-sm">A P2P multiplayer canvas.</p>
+
+            <div id="loading-state" class="hidden text-indigo-400 font-semibold mb-4 animate-pulse">
+                Connecting to signaling server...
+            </div>
+
+            <div id="action-state">
+                <button id="btn-host" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-6 shadow-lg shadow-indigo-900/50">
+                    Create New Room
+                </button>
+
+                <div class="flex items-center my-4">
+                    <div class="flex-grow border-t border-slate-600"></div>
+                    <span class="px-3 text-slate-500 text-sm">OR</span>
+                    <div class="flex-grow border-t border-slate-600"></div>
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="input-room-id" placeholder="Paste Room ID here..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg shadow-emerald-900/50">
+                        Join
+                    </button>
+                </div>
+                <p id="error-msg" class="text-red-400 text-sm mt-3 h-4"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME UI (Visible after connection) -->
+    <div id="game-ui" class="absolute inset-0 hidden pointer-events-none z-40">
+        <div class="absolute top-4 left-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto">
+            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Room ID</div>
+            <div class="flex items-center gap-2">
+                <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-lg select-all">...</code>
+                <button id="btn-copy" class="text-slate-400 hover:text-white transition-colors" title="Copy Room ID">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
+            <div class="mt-3 text-sm text-slate-300">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                <span id="player-count">1</span> Player(s) Online
+            </div>
+            <div class="mt-1 text-xs text-slate-500" id="role-display"></div>
+        </div>
+    </div>
+
+    <!-- CURSOR CONTAINER -->
+    <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
+
+    <script>
+        // --- GAME STATE ---
+        // You can read from these variables to build your minigames later!
+        const GameState = {
+            isHost: false,
+            myId: null,
+            roomId: null,
+            peers: {}, // { id: { x, y, targetX, targetY, element, color } }
+            localMouse: { x: 0.5, y: 0.5 } // Normalized coordinates (0.0 to 1.0)
+        };
+
+        // --- PEER.JS NETWORK VARIABLES ---
+        let peer = null;
+        let hostConnection = null; // Used by clients to talk to host
+        let clientConnections = {}; // Used by host to talk to clients
+
+        // --- CONSTANTS ---
+        const NETWORK_TICK_RATE = 1000 / 30; // 30 times a second
+        const LERP_FACTOR = 0.3; // How fast cursors glide to their target (0.1 to 1.0)
+
+        // --- DOM ELEMENTS ---
+        const lobbyEl = document.getElementById('lobby');
+        const gameUiEl = document.getElementById('game-ui');
+        const cursorContainer = document.getElementById('cursor-container');
+        const errorMsgEl = document.getElementById('error-msg');
+        
+        // --- UTILS ---
+        // Generates a consistent, bright color based on a string (Peer ID)
+        function getColorFromId(id) {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            const h = Math.abs(hash) % 360;
+            return `hsl(${h}, 80%, 60%)`;
+        }
+
+        // Show error message in UI
+        function showError(msg) {
+            errorMsgEl.innerText = msg;
+            setTimeout(() => errorMsgEl.innerText = '', 5000);
+        }
+
+        // Transition from Lobby to Game
+        function enterGame() {
+            lobbyEl.classList.add('hidden-fade');
+            setTimeout(() => lobbyEl.style.display = 'none', 300);
+            gameUiEl.classList.remove('hidden');
+            
+            document.getElementById('display-room-id').innerText = GameState.roomId;
+            document.getElementById('role-display').innerText = GameState.isHost ? 'Role: Host (Server)' : 'Role: Client';
+            
+            // Start the network and rendering loops
+            requestAnimationFrame(renderLoop);
+            setInterval(networkTick, NETWORK_TICK_RATE);
+        }
+
+        function updatePlayerCount() {
+            // +1 for ourselves
+            const count = Object.keys(GameState.peers).length + 1;
+            document.getElementById('player-count').innerText = count;
+        }
+
+        // --- CURSOR MANAGEMENT ---
+        function createCursorElement(id) {
+            const color = getColorFromId(id);
+            const shortId = id.substring(0, 4);
+            
+            const el = document.createElement('div');
+            el.className = 'remote-cursor';
+            // Custom SVG Cursor pointing top-left, filled with their unique color
+            el.innerHTML = `
+                <svg class="cursor-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4.14807 2.15545C3.39345 1.34685 2.05269 1.94276 2.14582 3.0487L4.54226 31.5034C4.62939 32.538 5.86477 33.0039 6.6433 32.2952L12.3023 27.144C12.5937 26.8789 12.9788 26.7469 13.3712 26.7779L20.8935 27.3711C21.9961 27.4581 22.6841 26.1958 22.0163 25.3045L4.14807 2.15545Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+                <div class="cursor-label" style="color: ${color}; border: 1px solid ${color};">${shortId}</div>
+            `;
+            cursorContainer.appendChild(el);
+            return el;
+        }
+
+        function removeCursor(id) {
+            if (GameState.peers[id]) {
+                GameState.peers[id].element.remove();
+                delete GameState.peers[id];
+                updatePlayerCount();
+            }
+        }
+
+        function updateRemoteCursor(id, normX, normY) {
+            if (!GameState.peers[id]) {
+                GameState.peers[id] = {
+                    x: normX * window.innerWidth,
+                    y: normY * window.innerHeight,
+                    targetX: normX * window.innerWidth,
+                    targetY: normY * window.innerHeight,
+                    element: createCursorElement(id)
+                };
+                updatePlayerCount();
+            } else {
+                GameState.peers[id].targetX = normX * window.innerWidth;
+                GameState.peers[id].targetY = normY * window.innerHeight;
+            }
+        }
+
+        // --- INPUT HANDLING ---
+        // Track local mouse movement and normalize it
+        window.addEventListener('mousemove', (e) => {
+            GameState.localMouse.x = e.clientX / window.innerWidth;
+            GameState.localMouse.y = e.clientY / window.innerHeight;
+        });
+
+        // --- RENDERING LOOP ---
+        // This runs at monitor refresh rate (e.g. 60Hz or 144Hz) to smoothly lerp cursors
+        function renderLoop() {
+            for (let id in GameState.peers) {
+                let p = GameState.peers[id];
+                
+                // Linear Interpolation (Lerp) algorithm
+                p.x += (p.targetX - p.x) * LERP_FACTOR;
+                p.y += (p.targetY - p.y) * LERP_FACTOR;
+                
+                // Update DOM element position
+                p.element.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                
+                // Make it visible once it has moved
+                if (p.element.style.opacity === "0") {
+                    p.element.style.opacity = "1";
+                }
+            }
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- NETWORK LOOP ---
+        // This runs at a fixed rate (30fps) to send/receive data
+        function networkTick() {
+            if (GameState.isHost) {
+                // Host Behavior: Build snapshot of ALL cursors and broadcast
+                let snapshot = {
+                    type: 'snapshot',
+                    data: {
+                        [GameState.myId]: GameState.localMouse // Add host's own cursor
+                    }
+                };
+
+                // Add all clients to snapshot
+                for (let id in GameState.peers) {
+                    // Convert screen pixels back to normalized coords for the snapshot
+                    snapshot.data[id] = {
+                        x: GameState.peers[id].targetX / window.innerWidth,
+                        y: GameState.peers[id].targetY / window.innerHeight
+                    };
+                }
+
+                // Send to all connected clients
+                for (let id in clientConnections) {
+                    if (clientConnections[id].open) {
+                        clientConnections[id].send(snapshot);
+                    }
+                }
+            } else if (hostConnection && hostConnection.open) {
+                // Client Behavior: Send local cursor to Host
+                hostConnection.send({
+                    type: 'cursor',
+                    id: GameState.myId,
+                    x: GameState.localMouse.x,
+                    y: GameState.localMouse.y
+                });
+            }
+        }
+
+        // --- PEER.JS SETUP & LOGIC ---
+        function initPeer(onReady) {
+            document.getElementById('action-state').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                GameState.myId = id;
+                onReady(id);
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('action-state').classList.remove('hidden');
+                
+                if (err.type === 'peer-unavailable') {
+                    showError("Room not found!");
+                } else {
+                    showError("Network error: " + err.type);
+                }
+            });
+        }
+
+        // Host clicks "Create Room"
+        document.getElementById('btn-host').addEventListener('click', () => {
+            initPeer((id) => {
+                GameState.isHost = true;
+                GameState.roomId = id;
+                
+                // Listen for incoming client connections
+                peer.on('connection', (conn) => {
+                    clientConnections[conn.peer] = conn;
+                    
+                    conn.on('data', (msg) => {
+                        if (msg.type === 'cursor') {
+                            // Update the host's local record of this client's cursor
+                            updateRemoteCursor(msg.id, msg.x, msg.y);
+                        }
+                    });
+
+                    conn.on('close', () => removeCursor(conn.peer));
+                    conn.on('error', () => removeCursor(conn.peer));
+                });
+
+                enterGame();
+            });
+        });
+
+        // Client clicks "Join"
+        document.getElementById('btn-join').addEventListener('click', () => {
+            const joinId = document.getElementById('input-room-id').value.trim();
+            if (!joinId) {
+                showError("Please enter a Room ID");
+                return;
+            }
+
+            initPeer((id) => {
+                GameState.isHost = false;
+                GameState.roomId = joinId;
+
+                // Connect to Host
+                hostConnection = peer.connect(joinId, { reliable: false }); // Unreliable is faster for realtime streams
+                
+                hostConnection.on('open', () => {
+                    enterGame();
+                });
+
+                hostConnection.on('data', (msg) => {
+                    if (msg.type === 'snapshot') {
+                        // Host sent us the positions of EVERYONE (including the host)
+                        for (let peerId in msg.data) {
+                            if (peerId === GameState.myId) continue; // Skip our own cursor reflection
+                            updateRemoteCursor(peerId, msg.data[peerId].x, msg.data[peerId].y);
+                        }
+                    }
+                });
+
+                hostConnection.on('close', () => {
+                    alert("Host disconnected! Reload to try again.");
+                    location.reload();
+                });
+            });
+        });
+
+        // Copy Room ID utility
+        document.getElementById('btn-copy').addEventListener('click', () => {
+            navigator.clipboard.writeText(GameState.roomId)
+                .then(() => alert("Room ID copied to clipboard! Share it with your friends."))
+                .catch(err => console.error("Failed to copy", err));
+        });
+
+        // Handle browser window closing/reloading to clean up connections
+        window.addEventListener('beforeunload', () => {
+            if (peer) peer.destroy();
+        });
+
+    </script>
+</body>
+</html>
