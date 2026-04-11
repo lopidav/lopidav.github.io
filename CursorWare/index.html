@@ -3,75 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Cursor Party</title>
+    <title>P2P High-Accuracy Cursors</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; cursor: crosshair; }
         
-        /* The custom cursor element for other players */
-        .remote-cursor {
+        .cursor-entity {
             position: absolute;
             top: 0;
             left: 0;
-            pointer-events: none; /* Crucial: lets you click through other people's cursors */
-            z-index: 50;
+            pointer-events: none;
+            /* Z-index is now managed purely by JavaScript */
             will-change: transform;
-            /* Hide by default until we get a coordinate */
-            opacity: 0;
-            transition: opacity 0.2s ease;
+            opacity: 1;
+        }
+
+        .cursor-sprite-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
         }
 
         .cursor-icon {
-            width: 24px;
-            height: 24px;
-            /* Filter to add a nice drop shadow to the SVG */
-            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            top: -3px; 
+            left: -10px; 
+            transform-origin: 10px 3px; 
+            overflow: visible; 
+            filter: drop-shadow(1px 3px 4px rgba(0,0,0,0.6));
+        }
+
+        .facing-left { transform: rotate(-15deg); }
+        .facing-right { transform: scaleX(-1) rotate(-15deg); }
+
+        /* Animation classes */
+        .anim-hf { animation: highfive 0.3s ease-in-out; }
+        @keyframes highfive {
+            0% { transform: rotate(0deg) scale(1); }
+            40% { transform: rotate(-30deg) scale(1.3); }
+            60% { transform: rotate(20deg) scale(1.1); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .anim-slap-strike { animation: slapstrike 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        @keyframes slapstrike {
+            0% { transform: rotate(0deg) scale(1); }
+            30% { transform: rotate(-30deg) scale(1.1); } /* Pull back */
+            60% { transform: rotate(45deg) translateX(5px) scale(1.1); } /* Strike */
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .anim-slap-receive { animation: slapreceive 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); }
+        @keyframes slapreceive {
+            0% { transform: rotate(0deg) scale(1); }
+            20% { transform: rotate(-15deg) scale(1.6); } /* Expand and absorb */
+            40% { transform: rotate(15deg) scale(1.4); } /* Wobble */
+            60% { transform: rotate(-10deg) scale(1.2); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        /* Score Animation */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            20% { transform: translate(-50%, -80%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
         }
 
         .cursor-label {
             position: absolute;
-            top: 20px;
-            left: 14px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(15, 23, 42, 0.9);
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 10px;
             white-space: nowrap;
             font-weight: bold;
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
         }
+        body.labels-visible .cursor-label { opacity: 1; }
 
-        /* Lobby transitions */
-        #lobby { transition: opacity 0.3s ease; }
+        #lobby { transition: opacity 0.2s ease; }
         .hidden-fade { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <!-- LOBBY UI -->
-    <div id="lobby" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-50">
+    <div id="lobby" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-[60]">
         <div class="bg-slate-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-slate-700">
-            <h1 class="text-3xl font-bold mb-2 text-indigo-400">Cursor Party</h1>
-            <p class="text-slate-400 mb-8 text-sm">A P2P multiplayer canvas.</p>
+            <h1 class="text-3xl font-bold mb-2 text-indigo-400">High-Precision Party</h1>
+            <p class="text-slate-400 mb-8 text-sm">Low-latency P2P synchronization.</p>
 
             <div id="loading-state" class="hidden text-indigo-400 font-semibold mb-4 animate-pulse">
-                Connecting to signaling server...
+                Connecting to PeerJS...
             </div>
 
             <div id="action-state">
-                <button id="btn-host" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-6 shadow-lg shadow-indigo-900/50">
+                <button id="btn-host" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-6 shadow-lg">
                     Create New Room
                 </button>
-
                 <div class="flex items-center my-4">
                     <div class="flex-grow border-t border-slate-600"></div>
                     <span class="px-3 text-slate-500 text-sm">OR</span>
                     <div class="flex-grow border-t border-slate-600"></div>
                 </div>
-
                 <div class="flex gap-2">
-                    <input type="text" id="input-room-id" placeholder="Paste Room ID here..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                    <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg shadow-emerald-900/50">
+                    <input type="text" id="input-room-id" placeholder="Room ID..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
                         Join
                     </button>
                 </div>
@@ -80,292 +125,602 @@
         </div>
     </div>
 
-    <!-- GAME UI (Visible after connection) -->
-    <div id="game-ui" class="absolute inset-0 hidden pointer-events-none z-40">
-        <div class="absolute top-4 left-4 bg-slate-800/80 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto">
-            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Room ID</div>
-            <div class="flex items-center gap-2">
-                <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-lg select-all">...</code>
-                <button id="btn-copy" class="text-slate-400 hover:text-white transition-colors" title="Copy Room ID">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                </button>
-            </div>
-            <div class="mt-3 text-sm text-slate-300">
-                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
-                <span id="player-count">1</span> Player(s) Online
-            </div>
-            <div class="mt-1 text-xs text-slate-500" id="role-display"></div>
+    <!-- PROMPT TO LOCK CURSOR -->
+    <div id="click-prompt" style="display: none;" class="fixed inset-0 items-center justify-center bg-slate-900/40 z-[100] cursor-pointer">
+        <div class="bg-indigo-600 px-6 py-3 rounded-full font-bold shadow-2xl animate-bounce mt-32">
+            Click anywhere to start moving
         </div>
     </div>
 
-    <!-- CURSOR CONTAINER -->
+    <!-- GAME UI -->
+    <div id="game-ui" class="absolute inset-0 hidden pointer-events-none z-[110]">
+        <div class="absolute top-4 left-4 bg-slate-800/90 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto shadow-xl">
+            <div class="flex items-center gap-2 mb-2">
+                <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-sm">...</code>
+                <button id="btn-copy" class="p-1 hover:bg-slate-700 rounded transition-colors" title="Copy Room ID">
+                    <svg id="icon-copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <svg id="icon-check" class="hidden text-emerald-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+            </div>
+            <div class="text-xs text-slate-300 font-medium mb-1">
+                <span id="player-count">1</span> Users Synced @ 60Hz
+            </div>
+            <div class="text-[10px] text-slate-500 mt-2 space-y-1">
+                <div>[ESC] Release cursor</div>
+                <div>[TAB] Show names</div>
+                <div>[CLICK] High-five / Slap</div>
+                <div>[DRAG] Grab cursors</div>
+            </div>
+        </div>
+    </div>
+
     <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
 
     <script>
-        // --- GAME STATE ---
-        // You can read from these variables to build your minigames later!
+        // --- SYNTHESIZED AUDIO ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function createNoiseBuffer(durationSec) {
+            const bufferSize = audioCtx.sampleRate * durationSec;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            return buffer;
+        }
+
+        function playSlapSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = createNoiseBuffer(0.1);
+            
+            // Replaced high/peaking filter with a smoother bandpass for a wet, less shrill smack
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 800;
+            filter.Q.value = 1.5;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.8, audioCtx.currentTime); // Lower overall volume
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            noise.start();
+        }
+
+        function playHighFiveSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = createNoiseBuffer(0.3);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1500;
+            const gain = audioCtx.createGain();
+            
+            // Double clap envelope
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+            gain.gain.linearRampToValueAtTime(1.2, audioCtx.currentTime + 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // --- GAME CORE ---
         const GameState = {
             isHost: false,
             myId: null,
             roomId: null,
-            peers: {}, // { id: { x, y, targetX, targetY, element, color } }
-            localMouse: { x: 0.5, y: 0.5 } // Normalized coordinates (0.0 to 1.0)
+            isInGame: false,
+            isClickedIn: false,
+            peers: {}, 
+            localPos: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+            lastSentMouse: { x: 0, y: 0 },
+            localCursorEl: null,
+            
+            // Dynamic Global Layering System
+            baseZ: {}, 
+            activeDrags: {}
         };
 
-        // --- PEER.JS NETWORK VARIABLES ---
         let peer = null;
-        let hostConnection = null; // Used by clients to talk to host
-        let clientConnections = {}; // Used by host to talk to clients
+        let hostConnection = null; 
+        let clientConnections = {}; 
 
-        // --- CONSTANTS ---
-        const NETWORK_TICK_RATE = 1000 / 30; // 30 times a second
-        const LERP_FACTOR = 0.3; // How fast cursors glide to their target (0.1 to 1.0)
+        const SEND_RATE = 1000 / 60; 
+        const LERP_SPEED = 0.8; 
+        const HIT_RADIUS = 35; // pixels
 
-        // --- DOM ELEMENTS ---
-        const lobbyEl = document.getElementById('lobby');
-        const gameUiEl = document.getElementById('game-ui');
-        const cursorContainer = document.getElementById('cursor-container');
-        const errorMsgEl = document.getElementById('error-msg');
-        
-        // --- UTILS ---
-        // Generates a consistent, bright color based on a string (Peer ID)
+        // Interaction state
+        let interactingPeer = null;
+        let isDragging = false;
+        let dragStartPos = { x: 0, y: 0 };
+        let mouseDownTime = 0;
+        let recentHits = {}; 
+        let pendingHitTimeout = null;
+
         function getColorFromId(id) {
             let hash = 0;
             for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-            const h = Math.abs(hash) % 360;
-            return `hsl(${h}, 80%, 60%)`;
+            return `hsl(${Math.abs(hash) % 360}, 85%, 65%)`;
         }
 
-        // Show error message in UI
-        function showError(msg) {
-            errorMsgEl.innerText = msg;
-            setTimeout(() => errorMsgEl.innerText = '', 5000);
+        // --- Z-INDEX LAYER ENGINE ---
+        function promoteZ(actorId, targetId) {
+            if (!GameState.baseZ[actorId]) GameState.baseZ[actorId] = 100;
+            if (!GameState.baseZ[targetId]) GameState.baseZ[targetId] = 100;
+            
+            // If the actor is visually under the target, promote them to target + 1
+            if (GameState.baseZ[actorId] <= GameState.baseZ[targetId]) {
+                GameState.baseZ[actorId] = GameState.baseZ[targetId] + 1;
+            }
         }
 
-        // Transition from Lobby to Game
         function enterGame() {
+            GameState.isInGame = true;
             lobbyEl.classList.add('hidden-fade');
-            setTimeout(() => lobbyEl.style.display = 'none', 300);
+            setTimeout(() => lobbyEl.style.display = 'none', 200);
             gameUiEl.classList.remove('hidden');
-            
             document.getElementById('display-room-id').innerText = GameState.roomId;
-            document.getElementById('role-display').innerText = GameState.isHost ? 'Role: Host (Server)' : 'Role: Client';
+            document.getElementById('click-prompt').style.display = 'flex';
             
-            // Start the network and rendering loops
+            GameState.baseZ[GameState.myId] = 100; // Initialize local base layer
+
             requestAnimationFrame(renderLoop);
-            setInterval(networkTick, NETWORK_TICK_RATE);
+            setInterval(networkTick, SEND_RATE);
         }
 
-        function updatePlayerCount() {
-            // +1 for ourselves
-            const count = Object.keys(GameState.peers).length + 1;
-            document.getElementById('player-count').innerText = count;
-        }
-
-        // --- CURSOR MANAGEMENT ---
-        function createCursorElement(id) {
+        function createCursorElement(id, isLocal = false) {
             const color = getColorFromId(id);
-            const shortId = id.substring(0, 4);
-            
             const el = document.createElement('div');
-            el.className = 'remote-cursor';
-            // Custom SVG Cursor pointing top-left, filled with their unique color
+            el.className = 'cursor-entity';
+            
+            const facingClass = isLocal ? 'facing-left' : 'facing-right';
+            const spriteId = isLocal ? 'sprite-local' : 'sprite-' + id;
+            
+            const svgPath = "M18.5 8c-1.38 0-2.5 1.12-2.5 2.5V11h-.5V5.5C15.5 4.12 14.38 3 13 3s-2.5 1.12-2.5 2.5V11h-.5V4.5C10 3.12 8.88 2 7.5 2S5 3.12 5 4.5V14l-2.61-1.04a2.5 2.5 0 0 0-3.21 1.34l-.08.21c-.34.93-.05 1.99.73 2.6L8 23h8c3.86 0 7-3.14 7-7V10.5c0-1.38-1.12-2.5-2.5-2.5z";
+
             el.innerHTML = `
-                <svg class="cursor-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4.14807 2.15545C3.39345 1.34685 2.05269 1.94276 2.14582 3.0487L4.54226 31.5034C4.62939 32.538 5.86477 33.0039 6.6433 32.2952L12.3023 27.144C12.5937 26.8789 12.9788 26.7469 13.3712 26.7779L20.8935 27.3711C21.9961 27.4581 22.6841 26.1958 22.0163 25.3045L4.14807 2.15545Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                </svg>
-                <div class="cursor-label" style="color: ${color}; border: 1px solid ${color};">${shortId}</div>
+                <div class="cursor-sprite-wrapper" id="${spriteId}">
+                    <svg class="cursor-icon ${facingClass}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                        <path d="${svgPath}" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="cursor-label" style="top: 25px; left: ${isLocal ? '15px' : '-50px'}; color: ${color};">
+                    ${isLocal ? 'YOU' : id.substring(0, 5)}
+                </div>
             `;
-            cursorContainer.appendChild(el);
+            document.getElementById('cursor-container').appendChild(el);
             return el;
         }
 
-        function removeCursor(id) {
-            if (GameState.peers[id]) {
-                GameState.peers[id].element.remove();
-                delete GameState.peers[id];
-                updatePlayerCount();
-            }
+        const playAnim = (spriteEl, animClass) => {
+            if (!spriteEl) return;
+            spriteEl.classList.remove('anim-hf', 'anim-slap-strike', 'anim-slap-receive');
+            void spriteEl.offsetWidth; // Force CSS reflow
+            spriteEl.classList.add(animClass);
+        };
+
+        function showScorePop(x, y, diff) {
+            const scoreEl = document.createElement('div');
+            scoreEl.className = 'absolute z-[100] text-xl font-black italic select-none pointer-events-none drop-shadow-md';
+            scoreEl.style.left = x + 'px';
+            scoreEl.style.top = (y - 30) + 'px';
+            
+            let text, color;
+            if (diff <= 50) { text = 'PERFECT!'; color = '#fbbf24'; } 
+            else if (diff <= 150) { text = 'GREAT!'; color = '#34d399'; } 
+            else if (diff <= 300) { text = 'GOOD'; color = '#60a5fa'; } 
+            else { text = 'SLOW'; color = '#94a3b8'; } 
+            
+            scoreEl.style.color = color;
+            scoreEl.innerText = `${text} (${diff}ms)`;
+            scoreEl.style.animation = 'floatUp 1s ease-out forwards';
+            document.body.appendChild(scoreEl);
+            setTimeout(() => scoreEl.remove(), 1000);
         }
 
-        function updateRemoteCursor(id, normX, normY) {
-            if (!GameState.peers[id]) {
-                GameState.peers[id] = {
-                    x: normX * window.innerWidth,
-                    y: normY * window.innerHeight,
-                    targetX: normX * window.innerWidth,
-                    targetY: normY * window.innerHeight,
-                    element: createCursorElement(id)
-                };
-                updatePlayerCount();
-            } else {
-                GameState.peers[id].targetX = normX * window.innerWidth;
-                GameState.peers[id].targetY = normY * window.innerHeight;
-            }
-        }
+        // --- INTERACTION / DRAG & HIT LOGIC ---
+        window.addEventListener('mousedown', (e) => {
+            if (!GameState.isClickedIn) return;
 
-        // --- INPUT HANDLING ---
-        // Track local mouse movement and normalize it
-        window.addEventListener('mousemove', (e) => {
-            GameState.localMouse.x = e.clientX / window.innerWidth;
-            GameState.localMouse.y = e.clientY / window.innerHeight;
-        });
-
-        // --- RENDERING LOOP ---
-        // This runs at monitor refresh rate (e.g. 60Hz or 144Hz) to smoothly lerp cursors
-        function renderLoop() {
+            let hitId = null;
+            let minDist = HIT_RADIUS;
+            
             for (let id in GameState.peers) {
                 let p = GameState.peers[id];
-                
-                // Linear Interpolation (Lerp) algorithm
-                p.x += (p.targetX - p.x) * LERP_FACTOR;
-                p.y += (p.targetY - p.y) * LERP_FACTOR;
-                
-                // Update DOM element position
-                p.element.style.transform = `translate(${p.x}px, ${p.y}px)`;
-                
-                // Make it visible once it has moved
-                if (p.element.style.opacity === "0") {
-                    p.element.style.opacity = "1";
+                let dx = p.renderX - GameState.localPos.x;
+                let dy = p.renderY - GameState.localPos.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < minDist) {
+                    minDist = dist;
+                    hitId = id;
                 }
             }
+
+            if (hitId) {
+                interactingPeer = hitId;
+                isDragging = false;
+                mouseDownTime = Date.now();
+                dragStartPos = { x: GameState.localPos.x, y: GameState.localPos.y };
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement) {
+                GameState.localPos.x += e.movementX;
+                GameState.localPos.y += e.movementY;
+                GameState.localPos.x = Math.max(0, Math.min(window.innerWidth, GameState.localPos.x));
+                GameState.localPos.y = Math.max(0, Math.min(window.innerHeight, GameState.localPos.y));
+
+                if (interactingPeer) {
+                    const dist = Math.sqrt(Math.pow(GameState.localPos.x - dragStartPos.x, 2) + Math.pow(GameState.localPos.y - dragStartPos.y, 2));
+                    if (dist > 5) {
+                        isDragging = true;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!GameState.isClickedIn || !interactingPeer) return;
+
+            const now = Date.now();
+            const targetId = interactingPeer;
+
+            if (isDragging || (now - mouseDownTime > 300)) {
+                // Drag release logic is passive (network tick handles drag cleanup)
+            } else {
+                // Quick Release -> Hit Evaluation
+                promoteZ(GameState.myId, targetId); // Hit promotes instigator
+
+                if (recentHits[targetId] && (now - recentHits[targetId] <= 300)) {
+                    // High Five! 
+                    const diff = now - recentHits[targetId];
+                    playAnim(document.getElementById('sprite-local'), 'anim-hf');
+                    playAnim(document.getElementById('sprite-' + targetId), 'anim-hf');
+                    playHighFiveSound();
+                    showScorePop(GameState.localPos.x, GameState.localPos.y, diff);
+                    
+                    broadcastData({ t: 'event', type: 'highfive_confirm', from: GameState.myId, to: targetId, diff: diff });
+                    delete recentHits[targetId];
+                } else {
+                    // Start hit leeway timer
+                    broadcastData({ t: 'event', type: 'hit', from: GameState.myId, to: targetId });
+                    
+                    pendingHitTimeout = setTimeout(() => {
+                        // Slap Execute
+                        playAnim(document.getElementById('sprite-local'), 'anim-slap-strike');
+                        playAnim(document.getElementById('sprite-' + targetId), 'anim-slap-receive');
+                        playSlapSound();
+                        broadcastData({ t: 'event', type: 'slap_execute', from: GameState.myId, to: targetId });
+                    }, 200); 
+                }
+            }
+
+            interactingPeer = null;
+            isDragging = false;
+        });
+
+        // --- NETWORK CORE ---
+        function broadcastData(payload) {
+            if (GameState.isHost) {
+                for (let id in clientConnections) {
+                    if (clientConnections[id].open) clientConnections[id].send(payload);
+                }
+            } else if (hostConnection && hostConnection.open) {
+                hostConnection.send(payload);
+            }
+        }
+
+        function updateRemoteCursor(id, x, y) {
+            const targetX = x * window.innerWidth;
+            const targetY = y * window.innerHeight;
+
+            if (!GameState.peers[id]) {
+                GameState.peers[id] = {
+                    targetX: targetX,
+                    targetY: targetY,
+                    renderX: targetX,
+                    renderY: targetY,
+                    element: createCursorElement(id)
+                };
+                if (!GameState.baseZ[id]) GameState.baseZ[id] = 100; // Initialize base layer for peer
+                document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
+            } else {
+                const p = GameState.peers[id];
+                p.targetX = targetX;
+                p.targetY = targetY;
+            }
+        }
+
+        function renderLoop() {
+            const now = Date.now();
+            
+            // Clean up expired drags
+            for (let dId in GameState.activeDrags) {
+                if (now - GameState.activeDrags[dId].time > 150) delete GameState.activeDrags[dId];
+            }
+
+            // Calculate max base Z (so local cursor can always float above base stack)
+            let maxBaseZ = 100;
+            for (let id in GameState.baseZ) {
+                maxBaseZ = Math.max(maxBaseZ, GameState.baseZ[id]);
+            }
+
+            // Compile final render Z-Index map
+            let zMap = {};
+            for (let id in GameState.peers) zMap[id] = GameState.baseZ[id] || 100;
+            
+            // By default, local cursor is strictly higher than the highest remote base
+            zMap[GameState.myId] = maxBaseZ + 10;
+
+            // Apply absolute drag overrides (Dragger > Dragged > Everyone else)
+            for (let draggerId in GameState.activeDrags) {
+                let draggedId = GameState.activeDrags[draggerId].target;
+                
+                // Lift them both 1000 layers up
+                let dragLayer = 1000 + (GameState.baseZ[draggedId] || 100);
+                
+                zMap[draggedId] = dragLayer;
+                zMap[draggerId] = dragLayer + 1; // Dragger is exactly 1 layer above target
+            }
+
+            // Apply positions and calculated z-indexes
+            if (GameState.localCursorEl) {
+                GameState.localCursorEl.style.zIndex = zMap[GameState.myId];
+                GameState.localCursorEl.style.transform = `translate3d(${GameState.localPos.x}px, ${GameState.localPos.y}px, 0)`;
+            }
+
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                p.element.style.zIndex = zMap[id];
+                p.renderX += (p.targetX - p.renderX) * LERP_SPEED;
+                p.renderY += (p.targetY - p.renderY) * LERP_SPEED;
+                p.element.style.transform = `translate3d(${p.renderX}px, ${p.renderY}px, 0)`;
+            }
+            
             requestAnimationFrame(renderLoop);
         }
 
-        // --- NETWORK LOOP ---
-        // This runs at a fixed rate (30fps) to send/receive data
         function networkTick() {
-            if (GameState.isHost) {
-                // Host Behavior: Build snapshot of ALL cursors and broadcast
-                let snapshot = {
-                    type: 'snapshot',
-                    data: {
-                        [GameState.myId]: GameState.localMouse // Add host's own cursor
-                    }
-                };
+            if (!GameState.isClickedIn || !GameState.isInGame) return;
 
-                // Add all clients to snapshot
-                for (let id in GameState.peers) {
-                    // Convert screen pixels back to normalized coords for the snapshot
-                    snapshot.data[id] = {
-                        x: GameState.peers[id].targetX / window.innerWidth,
-                        y: GameState.peers[id].targetY / window.innerHeight
-                    };
+            const xNorm = GameState.localPos.x / window.innerWidth;
+            const yNorm = GameState.localPos.y / window.innerHeight;
+
+            // Handle Active Dragging state
+            if (isDragging && interactingPeer) {
+                promoteZ(GameState.myId, interactingPeer);
+                GameState.activeDrags[GameState.myId] = { target: interactingPeer, time: Date.now() };
+
+                // Instantly glue the dragged cursor visually to your mouse to bypass network round-trip lag
+                if (GameState.peers[interactingPeer]) {
+                    GameState.peers[interactingPeer].targetX = GameState.localPos.x;
+                    GameState.peers[interactingPeer].targetY = GameState.localPos.y;
                 }
 
-                // Send to all connected clients
-                for (let id in clientConnections) {
-                    if (clientConnections[id].open) {
-                        clientConnections[id].send(snapshot);
-                    }
-                }
-            } else if (hostConnection && hostConnection.open) {
-                // Client Behavior: Send local cursor to Host
-                hostConnection.send({
-                    type: 'cursor',
-                    id: GameState.myId,
-                    x: GameState.localMouse.x,
-                    y: GameState.localMouse.y
+                broadcastData({
+                    t: 'event', type: 'drag', dragger: GameState.myId, dragged: interactingPeer,
+                    x: parseFloat(xNorm.toFixed(5)), y: parseFloat(yNorm.toFixed(5))
                 });
             }
+
+            if (xNorm === GameState.lastSentMouse.x && yNorm === GameState.lastSentMouse.y) return;
+
+            broadcastData({
+                t: 'c', id: GameState.myId,
+                x: parseFloat(xNorm.toFixed(5)), y: parseFloat(yNorm.toFixed(5))
+            });
+
+            GameState.lastSentMouse.x = xNorm;
+            GameState.lastSentMouse.y = yNorm;
         }
 
-        // --- PEER.JS SETUP & LOGIC ---
+        // --- POINTER LOCK & TAB TOGGLE ---
+        const lobbyEl = document.getElementById('lobby');
+        const gameUiEl = document.getElementById('game-ui');
+        const clickPrompt = document.getElementById('click-prompt');
+
+        let tabDownTime = 0;
+        let labelsToggled = false;
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' && GameState.isClickedIn) {
+                e.preventDefault();
+                if (!e.repeat) {
+                    tabDownTime = Date.now();
+                    document.body.classList.add('labels-visible');
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Tab' && GameState.isClickedIn) {
+                e.preventDefault();
+                if (Date.now() - tabDownTime < 300) {
+                    labelsToggled = !labelsToggled;
+                }
+                
+                if (!labelsToggled) {
+                    document.body.classList.remove('labels-visible');
+                } else {
+                    document.body.classList.add('labels-visible');
+                }
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            labelsToggled = false;
+            document.body.classList.remove('labels-visible');
+        });
+
+        clickPrompt.addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.body.requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement) {
+                GameState.isClickedIn = true;
+                clickPrompt.style.display = 'none';
+                gameUiEl.classList.add('hidden');
+                if (!GameState.localCursorEl) {
+                    GameState.localCursorEl = createCursorElement(GameState.myId, true);
+                }
+            } else {
+                GameState.isClickedIn = false;
+                if (GameState.isInGame) {
+                    clickPrompt.style.display = 'flex';
+                    gameUiEl.classList.remove('hidden');
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                const xNorm = p.targetX / (window.innerWidth || 1);
+                const yNorm = p.targetY / (window.innerHeight || 1);
+                p.targetX = xNorm * window.innerWidth;
+                p.targetY = yNorm * window.innerHeight;
+            }
+        });
+
+        // --- PEER.JS INITIALIZATION & EVENT RELAY ---
         function initPeer(onReady) {
             document.getElementById('action-state').classList.add('hidden');
             document.getElementById('loading-state').classList.remove('hidden');
-
-            peer = new Peer();
-
+            peer = new Peer(null, { debug: 1 });
             peer.on('open', (id) => {
                 GameState.myId = id;
                 onReady(id);
             });
-
             peer.on('error', (err) => {
-                console.error(err);
                 document.getElementById('loading-state').classList.add('hidden');
                 document.getElementById('action-state').classList.remove('hidden');
-                
-                if (err.type === 'peer-unavailable') {
-                    showError("Room not found!");
-                } else {
-                    showError("Network error: " + err.type);
-                }
+                document.getElementById('error-msg').innerText = "Error: " + err.type;
             });
         }
 
-        // Host clicks "Create Room"
         document.getElementById('btn-host').addEventListener('click', () => {
             initPeer((id) => {
                 GameState.isHost = true;
                 GameState.roomId = id;
-                
-                // Listen for incoming client connections
                 peer.on('connection', (conn) => {
                     clientConnections[conn.peer] = conn;
-                    
-                    conn.on('data', (msg) => {
-                        if (msg.type === 'cursor') {
-                            // Update the host's local record of this client's cursor
-                            updateRemoteCursor(msg.id, msg.x, msg.y);
+                    conn.on('data', (data) => {
+                        if (data.t === 'c') {
+                            updateRemoteCursor(data.id, data.x, data.y);
+                        } else if (data.t === 'event') {
+                            // Hit Events
+                            if (data.type === 'hit') {
+                                promoteZ(data.from, data.to);
+                                if (data.to === GameState.myId) recentHits[data.from] = Date.now();
+                            } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
+                                clearTimeout(pendingHitTimeout);
+                                playAnim(document.getElementById('sprite-local'), 'anim-hf');
+                                playAnim(document.getElementById('sprite-' + data.from), 'anim-hf');
+                                playHighFiveSound();
+                                showScorePop(GameState.localPos.x, GameState.localPos.y, data.diff);
+                            } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
+                                playAnim(document.getElementById('sprite-local'), 'anim-slap-receive'); // Slapped receives
+                                playAnim(document.getElementById('sprite-' + data.from), 'anim-slap-strike'); // Slapper strikes
+                                playSlapSound();
+                            } 
+                            // Drag Override Events
+                            else if (data.type === 'drag') {
+                                promoteZ(data.dragger, data.dragged);
+                                GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+
+                                if (data.dragged === GameState.myId) {
+                                    GameState.localPos.x = data.x * window.innerWidth;
+                                    GameState.localPos.y = data.y * window.innerHeight;
+                                } else if (GameState.peers[data.dragged]) {
+                                    GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                                    GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                                }
+                            }
+                        }
+                        
+                        // Host Relays data to everyone else
+                        for (let otherId in clientConnections) {
+                            if (otherId !== conn.peer && clientConnections[otherId].open) {
+                                clientConnections[otherId].send(data);
+                            }
                         }
                     });
-
-                    conn.on('close', () => removeCursor(conn.peer));
-                    conn.on('error', () => removeCursor(conn.peer));
+                    conn.on('close', () => {
+                        if(GameState.peers[conn.peer]) {
+                            GameState.peers[conn.peer].element.remove();
+                            delete GameState.peers[conn.peer];
+                        }
+                        document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
+                    });
                 });
-
                 enterGame();
             });
         });
 
-        // Client clicks "Join"
         document.getElementById('btn-join').addEventListener('click', () => {
             const joinId = document.getElementById('input-room-id').value.trim();
-            if (!joinId) {
-                showError("Please enter a Room ID");
-                return;
-            }
-
+            if (!joinId) return;
             initPeer((id) => {
                 GameState.isHost = false;
                 GameState.roomId = joinId;
+                hostConnection = peer.connect(joinId, { reliable: false });
+                hostConnection.on('open', () => enterGame());
+                hostConnection.on('data', (data) => {
+                    if (data.t === 'c' && data.id !== GameState.myId) {
+                        updateRemoteCursor(data.id, data.x, data.y);
+                    } else if (data.t === 'event') {
+                        // Hit Events
+                        if (data.type === 'hit') {
+                            promoteZ(data.from, data.to);
+                            if (data.to === GameState.myId) recentHits[data.from] = Date.now();
+                        } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
+                            clearTimeout(pendingHitTimeout);
+                            playAnim(document.getElementById('sprite-local'), 'anim-hf');
+                            playAnim(document.getElementById('sprite-' + data.from), 'anim-hf');
+                            playHighFiveSound();
+                            showScorePop(GameState.localPos.x, GameState.localPos.y, data.diff);
+                        } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
+                            playAnim(document.getElementById('sprite-local'), 'anim-slap-receive'); // Slapped receives
+                            playAnim(document.getElementById('sprite-' + data.from), 'anim-slap-strike'); // Slapper strikes
+                            playSlapSound();
+                        } 
+                        // Drag Override Events
+                        else if (data.type === 'drag') {
+                            promoteZ(data.dragger, data.dragged);
+                            GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
 
-                // Connect to Host
-                hostConnection = peer.connect(joinId, { reliable: false }); // Unreliable is faster for realtime streams
-                
-                hostConnection.on('open', () => {
-                    enterGame();
-                });
-
-                hostConnection.on('data', (msg) => {
-                    if (msg.type === 'snapshot') {
-                        // Host sent us the positions of EVERYONE (including the host)
-                        for (let peerId in msg.data) {
-                            if (peerId === GameState.myId) continue; // Skip our own cursor reflection
-                            updateRemoteCursor(peerId, msg.data[peerId].x, msg.data[peerId].y);
+                            if (data.dragged === GameState.myId) {
+                                GameState.localPos.x = data.x * window.innerWidth;
+                                GameState.localPos.y = data.y * window.innerHeight;
+                            } else if (GameState.peers[data.dragged]) {
+                                GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                                GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                            }
                         }
                     }
-                });
-
-                hostConnection.on('close', () => {
-                    alert("Host disconnected! Reload to try again.");
-                    location.reload();
                 });
             });
         });
 
-        // Copy Room ID utility
         document.getElementById('btn-copy').addEventListener('click', () => {
-            navigator.clipboard.writeText(GameState.roomId)
-                .then(() => alert("Room ID copied to clipboard! Share it with your friends."))
-                .catch(err => console.error("Failed to copy", err));
-        });
-
-        // Handle browser window closing/reloading to clean up connections
-        window.addEventListener('beforeunload', () => {
-            if (peer) peer.destroy();
+            const ci = document.getElementById('icon-copy');
+            const ck = document.getElementById('icon-check');
+            navigator.clipboard.writeText(GameState.roomId).then(() => {
+                ci.classList.add('hidden'); ck.classList.remove('hidden');
+                setTimeout(() => { ci.classList.remove('hidden'); ck.classList.add('hidden'); }, 2000);
+            });
         });
 
     </script>
