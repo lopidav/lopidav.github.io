@@ -14,8 +14,7 @@
             top: 0;
             left: 0;
             pointer-events: none;
-            /* Z-index is now managed purely by JavaScript */
-            will-change: transform;
+            will-change: transform, z-index;
             opacity: 1;
         }
 
@@ -35,43 +34,51 @@
             left: -10px; 
             transform-origin: 10px 3px; 
             overflow: visible; 
-            filter: drop-shadow(1px 3px 4px rgba(0,0,0,0.6));
+            filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
         }
 
         .facing-left { transform: rotate(-15deg); }
-        .facing-right { transform: scaleX(-1) rotate(-15deg); }
 
-        /* Animation classes */
-        .anim-hf { animation: highfive 0.3s ease-in-out; }
+        /* Snappy, Slapstick Animations */
+        .anim-hf { animation: highfive 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: 2px 19px; }
         @keyframes highfive {
             0% { transform: rotate(0deg) scale(1); }
-            40% { transform: rotate(-30deg) scale(1.3); }
-            60% { transform: rotate(20deg) scale(1.1); }
+            30% { transform: rotate(-45deg) scale(1.5); }
             100% { transform: rotate(0deg) scale(1); }
         }
 
-        .anim-slap-strike { animation: slapstrike 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .anim-slap-strike { animation: slapstrike 0.25s cubic-bezier(0.25, 1, 0.5, 1); transform-origin: 2px 19px; }
         @keyframes slapstrike {
             0% { transform: rotate(0deg) scale(1); }
-            30% { transform: rotate(-30deg) scale(1.1); } /* Pull back */
-            60% { transform: rotate(45deg) translateX(5px) scale(1.1); } /* Strike */
+            40% { transform: rotate(-60deg) scale(1.3); } /* Huge windup */
+            60% { transform: rotate(45deg) translateX(10px) scale(1.1); } /* Instant snap forward */
             100% { transform: rotate(0deg) scale(1); }
         }
 
-        .anim-slap-receive { animation: slapreceive 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); }
+        /* Receive animation: no rotation, just scale up and bounce back */
+        .anim-slap-receive { animation: slapreceive 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97); transform-origin: center center; }
         @keyframes slapreceive {
-            0% { transform: rotate(0deg) scale(1); }
-            20% { transform: rotate(-15deg) scale(1.6); } /* Expand and absorb */
-            40% { transform: rotate(15deg) scale(1.4); } /* Wobble */
-            60% { transform: rotate(-10deg) scale(1.2); }
-            100% { transform: rotate(0deg) scale(1); }
+            0% { transform: scale(1); }
+            40% { transform: scale(1.4); } /* Get bigger */
+            100% { transform: scale(1); }
         }
 
-        /* Score Animation */
+        /* Effects */
         @keyframes floatUp {
             0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
             20% { transform: translate(-50%, -80%) scale(1.2); }
             100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+        }
+
+        @keyframes slapTextAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.1) rotate(-15deg); }
+            30% { opacity: 1; transform: translate(calc(-50% + var(--dx)*0.5), calc(-50% + var(--dy)*0.5)) scale(1.2) rotate(5deg); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(0deg); }
+        }
+
+        @keyframes rainbowText {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
         }
 
         .cursor-label {
@@ -84,7 +91,7 @@
             font-weight: bold;
             border: 1px solid rgba(255,255,255,0.1);
             opacity: 0;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.15s ease;
             pointer-events: none;
         }
         body.labels-visible .cursor-label { opacity: 1; }
@@ -148,7 +155,7 @@
             <div class="text-[10px] text-slate-500 mt-2 space-y-1">
                 <div>[ESC] Release cursor</div>
                 <div>[TAB] Show names</div>
-                <div>[CLICK] High-five / Slap</div>
+                <div>[CLICK] High-five / Slap / Break Free</div>
                 <div>[DRAG] Grab cursors</div>
             </div>
         </div>
@@ -157,6 +164,13 @@
     <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
 
     <script>
+        // --- CUSTOM SVG ICON PATHS ---
+        const PATH_POINTER = "M18.5 8c-1.38 0-2.5 1.12-2.5 2.5V11h-.5V5.5C15.5 4.12 14.38 3 13 3s-2.5 1.12-2.5 2.5V11h-.5V4.5C10 3.12 8.88 2 7.5 2S5 3.12 5 4.5V14l-2.61-1.04a2.5 2.5 0 0 0-3.21 1.34l-.08.21c-.34.93-.05 1.99.73 2.6L8 23h8c3.86 0 7-3.14 7-7V10.5c0-1.38-1.12-2.5-2.5-2.5z";
+        const PATH_SLAP_STRIKE = "m 18.5,3.4540089 c -1.38,0 -2.5,1.12 -2.5,2.5 V 11 H 15.5 V 2.4667361 c 0,-1.38 -1.12,-2.49999998 -2.5,-2.49999998 -1.38,0 -2.5,1.11999998 -2.5,2.49999998 V 11 H 10 V 4.5 C 10,3.12 8.88,2 7.5,2 6.12,2 5,3.12 5,4.5 V 14 l -0.4572128,-0.0022 -0.0226,-2.779551 c 0,-1.4405952 -0.9655806,-2.4663057 -2.416383,-2.4663057 l -0.04732,-6.436e-4 c -1.15122505,0 -2.47575689,0.6591564 -2.47575689,2.4558353 0,0 -0.0921032,4.251212 -0.0160665,6.504255 0.0405033,1.200153 0.14834728,2.327361 1.48266829,3.728712 C 2.4159868,22.877515 8,23 8,23 h 8 c 3.86,0 7,-3.14 7,-7 V 5.9540089 c 0,-1.38 -1.12,-2.5 -2.5,-2.5 z";
+        const PATH_JAZZ_HAND = "m 22.2121,4.2464771 c -1.195115,-0.69 -2.818835,-0.329489 -3.415064,0.9150636 L 16,11 h -0.5 l 0.618718,-8.5332639 c 0.0998,-1.3763868 -1.12,-2.49999998 -2.5,-2.49999998 -1.38,0 -2.400202,1.12361318 -2.5,2.49999998 L 10.5,11 H 10 L 7.4982996,4.0755247 C 7.029392,2.7776319 5.7694151,1.9505875 4.4364374,2.3077578 3.1034598,2.664928 2.1968682,4.0727766 2.6686705,5.3696199 c 0,0 2.0697685,4.9241201 2.3313295,6.4081271 C 5.261561,13.261754 5,14 5,14 L 4.5427872,13.9978 -0.01360504,13.105728 C -1.4051131,12.732875 -2.6457841,13.40008 -3.0212794,14.801448 l -0.012869,0.04554 c -0.297959,1.111998 -0.00408,2.562 1.7313817,3.027014 3.5585897,0.469259 5.5926925,0.859693 6.3056986,1.732766 C 5.7591184,20.532715 5.1589508,21.957408 8,23 h 8 c 3.86,0 7,-3.14 7,-7 V 12.03125 L 24.859214,8.6615407 C 25.525878,7.4532531 25.139265,5.9364771 23.94415,5.2464771 Z";
+        const PATH_GRAB = "m 18.5,7.080786 c -1.38,0 -2.5,1.12 -2.5,2.5 V 11 H 15.5 V 8.3105816 c 0,-1.38 -1.12,-2.5 -2.5,-2.5 -1.38,0 -2.5,1.12 -2.5,2.5 V 11 H 10 V 9.2928981 C 10,7.9128983 8.88,6.7928983 7.5,6.7928983 c -1.38,0 -2.5,1.12 -2.5,2.4999998 V 14 l -0.6452261,0.04463 c -1.3435623,-0.0275 -2.2803811,0.362565 -2.8133152,1.602424 l -0.08,0.21 c -0.34,0.93 -0.1734222,2.257415 0.6065777,2.867415 L 8,23 h 8 c 3.86,0 7,-3.14 7,-7 V 9.580786 c 0,-1.38 -1.12,-2.5 -2.5,-2.5 z";
+        const PATH_SQUEEZED = "M 32.588701,17.530003 C 32.71581,16.155869 31.929267,16.016137 30.559872,15.84538 l -2.272902,-0.283419 -3.727789,0.306818 0.01823,-0.22857 4.405618,-0.07464 4.072348,0.01782 c 1.379987,0.006 2.461122,-0.201853 2.565976,-1.577864 0.104854,-1.37601 -0.929461,-2.547516 -2.302821,-2.682726 l -3.670952,0.08827 -5.14746,-0.332692 -0.0037,-0.218719 3.874048,0.519648 3.015712,-0.597176 C 32.739885,10.514053 33.481515,9.0174791 33.101815,7.6907434 32.722114,6.3640078 31.483802,6.1135862 30.143368,6.4416649 l -3.301713,0.9108304 c 0,0 -1.805992,-0.4677483 -2.706848,-0.4992353 C 23.23395,6.821774 21.495662,7.1514451 21.495662,7.1514451 L 21.490162,6.6942607 24.540456,6.41754 c 1.384992,-0.3963728 2.105438,-1.6069039 1.706256,-3.0017092 l -0.0124,-0.04567 C 25.917511,2.2633695 24.931336,1.8783301 23.204005,2.3726776 21.305504,3.8058614 19.139129,5.2027277 17.590519,5.8497136 16.645525,6.2445182 15.867283,7.143715 15.174961,7.3656263 13.651678,7.8538867 12.709088,7.7016847 12.485691,10.328583 l 0.0945,5.577404 c 0.06539,3.859446 5.765984,2.922698 9.513368,3.186186 l 5.149688,0.362088 c 0.800695,0.155609 -0.0796,0.03471 1.717174,0.478431 1.339752,0.330854 3.353163,0.571557 3.474319,-0.73823 zM 32.588701,17.530003 C 32.71581,16.155869 31.929267,16.016137 30.559872,15.84538 l -2.272902,-0.283419 -3.727789,0.306818 0.01823,-0.22857 4.405618,-0.07464 4.072348,0.01782 c 1.379987,0.006 2.461122,-0.201853 2.565976,-1.577864 0.104854,-1.37601 -0.929461,-2.547516 -2.302821,-2.682726 l -3.670952,0.08827 -5.14746,-0.332692 -0.0037,-0.218719 3.874048,0.519648 3.015712,-0.597176 C 32.739885,10.514053 33.481515,9.0174791 33.101815,7.6907434 32.722114,6.3640078 31.483802,6.1135862 30.143368,6.4416649 l -3.301713,0.9108304 c 0,0 -1.805992,-0.4677483 -2.706848,-0.4992353 C 23.23395,6.821774 21.495662,7.1514451 21.495662,7.1514451 L 21.490162,6.6942607 24.540456,6.41754 c 1.384992,-0.3963728 2.105438,-1.6069039 1.706256,-3.0017092 l -0.0124,-0.04567 C 25.917511,2.2633695 24.931336,1.8783301 23.204005,2.3726776 21.305504,3.8058614 19.139129,5.2027277 17.590519,5.8497136 16.645525,6.2445182 15.781702,6.9651015 15.174961,7.3656263 14.372996,7.8950239 10.287552,8.3154721 6.6745667,7.942865 4.6824303,7.7374159 3.1002896,6.4860007 1.7586891,6.4885192 -1.292048,6.4942461 -0.74285159,9.4153638 -0.81675532,10.284389 l 0.0945,5.577404 c 0.0170358,1.005458 0.30290373,3.235194 2.37433842,3.258136 1.6643807,0.01843 3.3306715,-0.891605 5.6400125,-0.876359 5.7120044,0.03771 12.8281474,0.709854 14.8014634,0.848603 l 5.149688,0.362088 c 0.800695,0.155609 -0.0796,0.03471 1.717174,0.478431 1.339752,0.330854 3.353163,0.571557 3.474319,-0.73823 z";
+
         // --- SYNTHESIZED AUDIO ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
@@ -174,15 +188,15 @@
             const noise = audioCtx.createBufferSource();
             noise.buffer = createNoiseBuffer(0.1);
             
-            // Replaced high/peaking filter with a smoother bandpass for a wet, less shrill smack
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'bandpass';
-            filter.frequency.value = 800;
-            filter.Q.value = 1.5;
+            // Randomize pitch and resonance for organic squish
+            filter.frequency.value = 800 + (Math.random() * 200 - 100);
+            filter.Q.value = 1.5 + (Math.random() * 0.6 - 0.3);
             
             const gain = audioCtx.createGain();
-            gain.gain.setValueAtTime(0.8, audioCtx.currentTime); // Lower overall volume
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.8, audioCtx.currentTime); 
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1 + (Math.random() * 0.04 - 0.02));
 
             noise.connect(filter);
             filter.connect(gain);
@@ -197,15 +211,17 @@
             noise.buffer = createNoiseBuffer(0.3);
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'bandpass';
-            filter.frequency.value = 1500;
+            // Randomize high-five pitch
+            filter.frequency.value = 1500 + (Math.random() * 400 - 200);
+            filter.Q.value = 1 + Math.random();
             const gain = audioCtx.createGain();
             
-            // Double clap envelope
+            const vol = 1 + (Math.random() * 0.2 - 0.1);
             gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
-            gain.gain.linearRampToValueAtTime(1.2, audioCtx.currentTime + 0.06);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.1 * vol, audioCtx.currentTime + 0.05);
+            gain.gain.linearRampToValueAtTime(1.2 * vol, audioCtx.currentTime + 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2 + (Math.random()*0.05));
 
             noise.connect(filter);
             filter.connect(gain);
@@ -225,9 +241,15 @@
             lastSentMouse: { x: 0, y: 0 },
             localCursorEl: null,
             
-            // Dynamic Global Layering System
+            localShape: PATH_POINTER, // Tracks current local icon shape
+            lastLocalPosX: null,
+            lastLocalPosY: null,
             baseZ: {}, 
-            activeDrags: {}
+            currentZMap: {}, 
+            overlaps: {}, // Locks Z layer relationships when standing still
+            activeDrags: {},
+            slapCombos: {}, 
+            hfCombos: {} 
         };
 
         let peer = null;
@@ -238,7 +260,6 @@
         const LERP_SPEED = 0.8; 
         const HIT_RADIUS = 35; // pixels
 
-        // Interaction state
         let interactingPeer = null;
         let isDragging = false;
         let dragStartPos = { x: 0, y: 0 };
@@ -246,18 +267,43 @@
         let recentHits = {}; 
         let pendingHitTimeout = null;
 
+        // Distinct, vibrant color palette ensuring hands are easily distinguishable
+        const CURSOR_COLORS = [
+            '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', 
+            '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e'
+        ];
+
         function getColorFromId(id) {
             let hash = 0;
             for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-            return `hsl(${Math.abs(hash) % 360}, 85%, 65%)`;
+            return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
         }
 
-        // --- Z-INDEX LAYER ENGINE ---
+        function getComboColor(combo) {
+            if (combo === 1) return 'rgb(255, 255, 255)';
+            if (combo <= 10) {
+                const p = (combo - 1) / 9;
+                return `rgb(255, 255, ${Math.floor(255 - p*255)})`;
+            }
+            if (combo <= 25) {
+                const p = (combo - 10) / 15;
+                return `rgb(255, ${Math.floor(255 - p*255)}, 0)`;
+            }
+            if (combo <= 100) {
+                const p = (combo - 25) / 75;
+                return `rgb(${Math.floor(255 - p*(255-173))}, ${Math.floor(p*216)}, ${Math.floor(p*230)})`;
+            }
+            if (combo < 1000) {
+                const p = Math.min(1, (combo - 100) / 400);
+                return `rgb(${Math.floor(173 - p*(173-128))}, ${Math.floor(216 - p*216)}, ${Math.floor(230 - p*(230-128))})`;
+            }
+            return 'rgb(128, 0, 128)';
+        }
+
         function promoteZ(actorId, targetId) {
             if (!GameState.baseZ[actorId]) GameState.baseZ[actorId] = 100;
             if (!GameState.baseZ[targetId]) GameState.baseZ[targetId] = 100;
             
-            // If the actor is visually under the target, promote them to target + 1
             if (GameState.baseZ[actorId] <= GameState.baseZ[targetId]) {
                 GameState.baseZ[actorId] = GameState.baseZ[targetId] + 1;
             }
@@ -271,7 +317,7 @@
             document.getElementById('display-room-id').innerText = GameState.roomId;
             document.getElementById('click-prompt').style.display = 'flex';
             
-            GameState.baseZ[GameState.myId] = 100; // Initialize local base layer
+            GameState.baseZ[GameState.myId] = 100;
 
             requestAnimationFrame(renderLoop);
             setInterval(networkTick, SEND_RATE);
@@ -282,18 +328,20 @@
             const el = document.createElement('div');
             el.className = 'cursor-entity';
             
-            const facingClass = isLocal ? 'facing-left' : 'facing-right';
+            const facingClass = 'facing-left'; 
             const spriteId = isLocal ? 'sprite-local' : 'sprite-' + id;
             
-            const svgPath = "M18.5 8c-1.38 0-2.5 1.12-2.5 2.5V11h-.5V5.5C15.5 4.12 14.38 3 13 3s-2.5 1.12-2.5 2.5V11h-.5V4.5C10 3.12 8.88 2 7.5 2S5 3.12 5 4.5V14l-2.61-1.04a2.5 2.5 0 0 0-3.21 1.34l-.08.21c-.34.93-.05 1.99.73 2.6L8 23h8c3.86 0 7-3.14 7-7V10.5c0-1.38-1.12-2.5-2.5-2.5z";
+            if (!isLocal && GameState.peers[id]) {
+                GameState.peers[id].currentShape = PATH_POINTER;
+            }
 
             el.innerHTML = `
                 <div class="cursor-sprite-wrapper" id="${spriteId}">
                     <svg class="cursor-icon ${facingClass}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
-                        <path d="${svgPath}" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="${PATH_POINTER}" stroke="black" stroke-width="1" stroke-linejoin="round"/>
                     </svg>
                 </div>
-                <div class="cursor-label" style="top: 25px; left: ${isLocal ? '15px' : '-50px'}; color: ${color};">
+                <div class="cursor-label" style="top: 25px; left: 15px; color: ${color};">
                     ${isLocal ? 'YOU' : id.substring(0, 5)}
                 </div>
             `;
@@ -301,35 +349,191 @@
             return el;
         }
 
+        // Highly optimized shape swapping function
+        function setHandShape(id, shapePath) {
+            if (id === GameState.myId) {
+                if (GameState.localShape === shapePath) return;
+                GameState.localShape = shapePath;
+            } else {
+                if (GameState.peers[id] && GameState.peers[id].currentShape === shapePath) return;
+                if (GameState.peers[id]) GameState.peers[id].currentShape = shapePath;
+            }
+            
+            const spriteId = id === GameState.myId ? 'sprite-local' : 'sprite-' + id;
+            const el = document.getElementById(spriteId);
+            if (el) {
+                const pathEl = el.querySelector('path');
+                if (pathEl) pathEl.setAttribute('d', shapePath);
+            }
+        }
+
         const playAnim = (spriteEl, animClass) => {
             if (!spriteEl) return;
             spriteEl.classList.remove('anim-hf', 'anim-slap-strike', 'anim-slap-receive');
-            void spriteEl.offsetWidth; // Force CSS reflow
+            void spriteEl.offsetWidth; 
             spriteEl.classList.add(animClass);
         };
 
-        function showScorePop(x, y, diff) {
+        function showSlapText(x, y, combo, targetZIndex) {
+            const textEl = document.createElement('div');
+            
+            // Randomize fly-out
+            const angle = (Math.random() - 0.5) * Math.PI; 
+            const dist = Math.random() * 40 + 30;
+            textEl.style.setProperty('--dx', `${Math.sin(angle) * dist}px`);
+            textEl.style.setProperty('--dy', `${-Math.cos(angle) * dist - 20}px`);
+
+            textEl.className = 'absolute text-sm md:text-base font-black italic select-none pointer-events-none drop-shadow-md';
+            textEl.style.left = x + 'px';
+            textEl.style.top = y + 'px';
+            textEl.style.zIndex = targetZIndex + 1;
+
+            if (combo >= 1000) {
+                textEl.innerText = 'SLAPAFICATION!!!!';
+                textEl.className = 'absolute text-xl md:text-2xl font-black italic select-none pointer-events-none drop-shadow-2xl';
+                textEl.style.backgroundImage = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+                textEl.style.webkitBackgroundClip = 'text';
+                textEl.style.color = 'transparent';
+                textEl.style.animation = 'slapTextAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, rainbowText 0.5s linear infinite';
+            } else {
+                textEl.innerText = combo > 1 ? `SLAP! x${combo}` : 'SLAP!';
+                textEl.style.color = getComboColor(combo);
+                textEl.style.textShadow = '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                textEl.style.animation = 'slapTextAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+            }
+            
+            document.body.appendChild(textEl);
+            setTimeout(() => textEl.remove(), 800);
+        }
+
+        function showScorePop(x, y, diff, combo, targetZIndex) {
             const scoreEl = document.createElement('div');
-            scoreEl.className = 'absolute z-[100] text-xl font-black italic select-none pointer-events-none drop-shadow-md';
+            
+            const angle = (Math.random() - 0.5) * Math.PI; 
+            const dist = Math.random() * 40 + 30;
+            scoreEl.style.setProperty('--dx', `${Math.sin(angle) * dist}px`);
+            scoreEl.style.setProperty('--dy', `${-Math.cos(angle) * dist - 20}px`);
+
+            scoreEl.className = 'absolute text-xs md:text-sm font-black italic select-none pointer-events-none drop-shadow-md';
             scoreEl.style.left = x + 'px';
-            scoreEl.style.top = (y - 30) + 'px';
+            scoreEl.style.top = y + 'px';
+            scoreEl.style.zIndex = targetZIndex + 1;
             
-            let text, color;
-            if (diff <= 50) { text = 'PERFECT!'; color = '#fbbf24'; } 
-            else if (diff <= 150) { text = 'GREAT!'; color = '#34d399'; } 
-            else if (diff <= 300) { text = 'GOOD'; color = '#60a5fa'; } 
-            else { text = 'SLOW'; color = '#94a3b8'; } 
+            let evalText;
+            if (diff <= 50) evalText = 'PERFECT!'; 
+            else if (diff <= 150) evalText = 'GREAT!'; 
+            else if (diff <= 300) evalText = 'GOOD'; 
+            else evalText = 'SLOW'; 
             
-            scoreEl.style.color = color;
-            scoreEl.innerText = `${text} (${diff}ms)`;
-            scoreEl.style.animation = 'floatUp 1s ease-out forwards';
+            if (combo >= 1000) {
+                scoreEl.innerText = 'HIGHFIVIFICATION!!!!';
+                scoreEl.className = 'absolute text-lg md:text-xl font-black italic select-none pointer-events-none drop-shadow-2xl';
+                scoreEl.style.backgroundImage = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+                scoreEl.style.webkitBackgroundClip = 'text';
+                scoreEl.style.color = 'transparent';
+                scoreEl.style.animation = 'slapTextAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, rainbowText 0.5s linear infinite';
+            } else {
+                scoreEl.innerText = combo > 1 ? `${evalText} x${combo} (${diff}ms)` : `${evalText} (${diff}ms)`;
+                scoreEl.style.color = getComboColor(combo);
+                scoreEl.style.textShadow = '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                scoreEl.style.animation = 'slapTextAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+            }
+
             document.body.appendChild(scoreEl);
-            setTimeout(() => scoreEl.remove(), 1000);
+            setTimeout(() => scoreEl.remove(), 800);
+        }
+
+        function executeSlapVisuals(slapperId, slappedId) {
+            const now = Date.now();
+            let comboInfo = GameState.slapCombos[slapperId] || { count: 0, lastTime: 0 };
+            
+            if (now - comboInfo.lastTime <= 500) {
+                comboInfo.count++;
+            } else {
+                comboInfo.count = 1;
+            }
+            comboInfo.lastTime = now;
+            GameState.slapCombos[slapperId] = comboInfo;
+
+            promoteZ(slapperId, slappedId);
+
+            const slapperEl = document.getElementById(slapperId === GameState.myId ? 'sprite-local' : 'sprite-' + slapperId);
+            const slappedEl = document.getElementById(slappedId === GameState.myId ? 'sprite-local' : 'sprite-' + slappedId);
+            
+            playAnim(slapperEl, 'anim-slap-strike');
+            setHandShape(slapperId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(slapperId, PATH_POINTER), 300);
+
+            playAnim(slappedEl, 'anim-slap-receive');
+            setHandShape(slappedId, PATH_JAZZ_HAND);
+            setTimeout(() => setHandShape(slappedId, PATH_POINTER), 400);
+            
+            playSlapSound();
+
+            let targetX = GameState.peers[slappedId] ? GameState.peers[slappedId].renderX : GameState.localPos.x;
+            let targetY = GameState.peers[slappedId] ? GameState.peers[slappedId].renderY : GameState.localPos.y;
+            
+            let tz = GameState.currentZMap[slappedId] || 100;
+            let sz = GameState.currentZMap[slapperId] || 100;
+            let textZ = Math.floor((tz + sz) / 2); 
+
+            showSlapText(targetX, targetY, comboInfo.count, textZ);
+        }
+
+        function executeHighFiveVisuals(initiatorId, targetId, diff) {
+            const now = Date.now();
+            let comboInfo = GameState.hfCombos[initiatorId] || { count: 0, lastTime: 0 };
+            
+            if (now - comboInfo.lastTime <= 500) {
+                comboInfo.count++;
+            } else {
+                comboInfo.count = 1;
+            }
+            comboInfo.lastTime = now;
+            GameState.hfCombos[initiatorId] = comboInfo;
+
+            promoteZ(initiatorId, targetId);
+
+            const initiatorEl = document.getElementById(initiatorId === GameState.myId ? 'sprite-local' : 'sprite-' + initiatorId);
+            const targetEl = document.getElementById(targetId === GameState.myId ? 'sprite-local' : 'sprite-' + targetId);
+            
+            playAnim(initiatorEl, 'anim-hf');
+            playAnim(targetEl, 'anim-hf');
+            
+            setHandShape(initiatorId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(initiatorId, PATH_POINTER), 300);
+            setHandShape(targetId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(targetId, PATH_POINTER), 300);
+
+            playHighFiveSound();
+
+            let targetX = GameState.peers[targetId] ? GameState.peers[targetId].renderX : GameState.localPos.x;
+            let targetY = GameState.peers[targetId] ? GameState.peers[targetId].renderY : GameState.localPos.y;
+            
+            let tz = GameState.currentZMap[targetId] || 100;
+            let sz = GameState.currentZMap[initiatorId] || 100;
+            let textZ = Math.floor((tz + sz) / 2); 
+
+            showScorePop(targetX, targetY, diff, comboInfo.count, textZ);
         }
 
         // --- INTERACTION / DRAG & HIT LOGIC ---
         window.addEventListener('mousedown', (e) => {
             if (!GameState.isClickedIn) return;
+
+            const now = Date.now();
+            let brokeFree = false;
+
+            for (let draggerId in GameState.activeDrags) {
+                if (GameState.activeDrags[draggerId].target === GameState.myId && (now - GameState.activeDrags[draggerId].time <= 150)) {
+                    executeSlapVisuals(GameState.myId, draggerId);
+                    broadcastData({ t: 'event', type: 'break_free', from: GameState.myId, to: draggerId });
+                    delete GameState.activeDrags[draggerId];
+                    brokeFree = true;
+                }
+            }
+
+            if (brokeFree) return;
 
             let hitId = null;
             let minDist = HIT_RADIUS;
@@ -362,8 +566,10 @@
 
                 if (interactingPeer) {
                     const dist = Math.sqrt(Math.pow(GameState.localPos.x - dragStartPos.x, 2) + Math.pow(GameState.localPos.y - dragStartPos.y, 2));
-                    if (dist > 5) {
+                    if (dist > 5 && !isDragging) {
                         isDragging = true;
+                        setHandShape(GameState.myId, PATH_GRAB);
+                        setHandShape(interactingPeer, PATH_SQUEEZED);
                     }
                 }
             }
@@ -376,30 +582,23 @@
             const targetId = interactingPeer;
 
             if (isDragging || (now - mouseDownTime > 300)) {
-                // Drag release logic is passive (network tick handles drag cleanup)
+                if (isDragging) {
+                    setHandShape(GameState.myId, PATH_POINTER);
+                    setHandShape(interactingPeer, PATH_POINTER);
+                }
             } else {
-                // Quick Release -> Hit Evaluation
-                promoteZ(GameState.myId, targetId); // Hit promotes instigator
+                promoteZ(GameState.myId, targetId); 
 
                 if (recentHits[targetId] && (now - recentHits[targetId] <= 300)) {
-                    // High Five! 
                     const diff = now - recentHits[targetId];
-                    playAnim(document.getElementById('sprite-local'), 'anim-hf');
-                    playAnim(document.getElementById('sprite-' + targetId), 'anim-hf');
-                    playHighFiveSound();
-                    showScorePop(GameState.localPos.x, GameState.localPos.y, diff);
-                    
+                    executeHighFiveVisuals(GameState.myId, targetId, diff);
                     broadcastData({ t: 'event', type: 'highfive_confirm', from: GameState.myId, to: targetId, diff: diff });
                     delete recentHits[targetId];
                 } else {
-                    // Start hit leeway timer
                     broadcastData({ t: 'event', type: 'hit', from: GameState.myId, to: targetId });
                     
                     pendingHitTimeout = setTimeout(() => {
-                        // Slap Execute
-                        playAnim(document.getElementById('sprite-local'), 'anim-slap-strike');
-                        playAnim(document.getElementById('sprite-' + targetId), 'anim-slap-receive');
-                        playSlapSound();
+                        executeSlapVisuals(GameState.myId, targetId);
                         broadcastData({ t: 'event', type: 'slap_execute', from: GameState.myId, to: targetId });
                     }, 200); 
                 }
@@ -430,9 +629,10 @@
                     targetY: targetY,
                     renderX: targetX,
                     renderY: targetY,
-                    element: createCursorElement(id)
+                    element: createCursorElement(id),
+                    currentShape: PATH_POINTER
                 };
-                if (!GameState.baseZ[id]) GameState.baseZ[id] = 100; // Initialize base layer for peer
+                if (!GameState.baseZ[id]) GameState.baseZ[id] = 100;
                 document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
             } else {
                 const p = GameState.peers[id];
@@ -444,36 +644,68 @@
         function renderLoop() {
             const now = Date.now();
             
-            // Clean up expired drags
             for (let dId in GameState.activeDrags) {
-                if (now - GameState.activeDrags[dId].time > 150) delete GameState.activeDrags[dId];
+                if (now - GameState.activeDrags[dId].time > 150) {
+                    setHandShape(dId, PATH_POINTER);
+                    setHandShape(GameState.activeDrags[dId].target, PATH_POINTER);
+                    delete GameState.activeDrags[dId];
+                }
             }
 
-            // Calculate max base Z (so local cursor can always float above base stack)
+            let speeds = {};
+            speeds[GameState.myId] = Math.hypot(GameState.localPos.x - (GameState.lastLocalPosX || GameState.localPos.x), GameState.localPos.y - (GameState.lastLocalPosY || GameState.localPos.y));
+            GameState.lastLocalPosX = GameState.localPos.x;
+            GameState.lastLocalPosY = GameState.localPos.y;
+            
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                speeds[id] = Math.hypot(p.targetX - (p.lastTargetX || p.targetX), p.targetY - (p.lastTargetY || p.targetY));
+                p.lastTargetX = p.targetX;
+                p.lastTargetY = p.targetY;
+            }
+
+            const allIds = [GameState.myId, ...Object.keys(GameState.peers)];
+            for (let i = 0; i < allIds.length; i++) {
+                for (let j = i + 1; j < allIds.length; j++) {
+                    const idA = allIds[i];
+                    const idB = allIds[j];
+                    const posA = idA === GameState.myId ? GameState.localPos : {x: GameState.peers[idA].renderX, y: GameState.peers[idA].renderY};
+                    const posB = idB === GameState.myId ? GameState.localPos : {x: GameState.peers[idB].renderX, y: GameState.peers[idB].renderY};
+                    
+                    const dist = Math.hypot(posA.x - posB.x, posA.y - posB.y);
+                    const pairKey = idA < idB ? idA + '|' + idB : idB + '|' + idA;
+                    
+                    if (dist < 40) {
+                        if (!GameState.overlaps[pairKey]) {
+                            GameState.overlaps[pairKey] = true;
+                            if (speeds[idA] > speeds[idB] + 0.5) promoteZ(idA, idB);
+                            else if (speeds[idB] > speeds[idA] + 0.5) promoteZ(idB, idA);
+                        }
+                    } else {
+                        delete GameState.overlaps[pairKey];
+                    }
+                }
+            }
+
             let maxBaseZ = 100;
             for (let id in GameState.baseZ) {
                 maxBaseZ = Math.max(maxBaseZ, GameState.baseZ[id]);
             }
 
-            // Compile final render Z-Index map
             let zMap = {};
-            for (let id in GameState.peers) zMap[id] = GameState.baseZ[id] || 100;
-            
-            // By default, local cursor is strictly higher than the highest remote base
-            zMap[GameState.myId] = maxBaseZ + 10;
+            for (let id in GameState.peers) zMap[id] = (GameState.baseZ[id] || 100) * 10;
+            zMap[GameState.myId] = (GameState.baseZ[GameState.myId] || 100) * 10;
 
-            // Apply absolute drag overrides (Dragger > Dragged > Everyone else)
             for (let draggerId in GameState.activeDrags) {
                 let draggedId = GameState.activeDrags[draggerId].target;
-                
-                // Lift them both 1000 layers up
-                let dragLayer = 1000 + (GameState.baseZ[draggedId] || 100);
+                let dragLayer = 10000 + (GameState.baseZ[draggedId] || 100) * 10;
                 
                 zMap[draggedId] = dragLayer;
-                zMap[draggerId] = dragLayer + 1; // Dragger is exactly 1 layer above target
+                zMap[draggerId] = dragLayer + 5; 
             }
+            
+            GameState.currentZMap = zMap; 
 
-            // Apply positions and calculated z-indexes
             if (GameState.localCursorEl) {
                 GameState.localCursorEl.style.zIndex = zMap[GameState.myId];
                 GameState.localCursorEl.style.transform = `translate3d(${GameState.localPos.x}px, ${GameState.localPos.y}px, 0)`;
@@ -496,12 +728,10 @@
             const xNorm = GameState.localPos.x / window.innerWidth;
             const yNorm = GameState.localPos.y / window.innerHeight;
 
-            // Handle Active Dragging state
             if (isDragging && interactingPeer) {
                 promoteZ(GameState.myId, interactingPeer);
                 GameState.activeDrags[GameState.myId] = { target: interactingPeer, time: Date.now() };
 
-                // Instantly glue the dragged cursor visually to your mouse to bypass network round-trip lag
                 if (GameState.peers[interactingPeer]) {
                     GameState.peers[interactingPeer].targetX = GameState.localPos.x;
                     GameState.peers[interactingPeer].targetY = GameState.localPos.y;
@@ -620,25 +850,20 @@
                         if (data.t === 'c') {
                             updateRemoteCursor(data.id, data.x, data.y);
                         } else if (data.t === 'event') {
-                            // Hit Events
                             if (data.type === 'hit') {
                                 promoteZ(data.from, data.to);
                                 if (data.to === GameState.myId) recentHits[data.from] = Date.now();
                             } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
                                 clearTimeout(pendingHitTimeout);
-                                playAnim(document.getElementById('sprite-local'), 'anim-hf');
-                                playAnim(document.getElementById('sprite-' + data.from), 'anim-hf');
-                                playHighFiveSound();
-                                showScorePop(GameState.localPos.x, GameState.localPos.y, data.diff);
+                                executeHighFiveVisuals(data.from, GameState.myId, data.diff);
                             } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
-                                playAnim(document.getElementById('sprite-local'), 'anim-slap-receive'); // Slapped receives
-                                playAnim(document.getElementById('sprite-' + data.from), 'anim-slap-strike'); // Slapper strikes
-                                playSlapSound();
-                            } 
-                            // Drag Override Events
-                            else if (data.type === 'drag') {
+                                executeSlapVisuals(data.from, GameState.myId);
+                            } else if (data.type === 'drag') {
                                 promoteZ(data.dragger, data.dragged);
                                 GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+
+                                setHandShape(data.dragger, PATH_GRAB);
+                                setHandShape(data.dragged, PATH_SQUEEZED);
 
                                 if (data.dragged === GameState.myId) {
                                     GameState.localPos.x = data.x * window.innerWidth;
@@ -647,10 +872,16 @@
                                     GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
                                     GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
                                 }
+                            } else if (data.type === 'break_free') {
+                                executeSlapVisuals(data.from, data.to);
+                                delete GameState.activeDrags[data.to];
+                                if (data.to === GameState.myId) {
+                                    isDragging = false;
+                                    interactingPeer = null;
+                                }
                             }
                         }
                         
-                        // Host Relays data to everyone else
                         for (let otherId in clientConnections) {
                             if (otherId !== conn.peer && clientConnections[otherId].open) {
                                 clientConnections[otherId].send(data);
@@ -681,25 +912,20 @@
                     if (data.t === 'c' && data.id !== GameState.myId) {
                         updateRemoteCursor(data.id, data.x, data.y);
                     } else if (data.t === 'event') {
-                        // Hit Events
                         if (data.type === 'hit') {
                             promoteZ(data.from, data.to);
                             if (data.to === GameState.myId) recentHits[data.from] = Date.now();
                         } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
                             clearTimeout(pendingHitTimeout);
-                            playAnim(document.getElementById('sprite-local'), 'anim-hf');
-                            playAnim(document.getElementById('sprite-' + data.from), 'anim-hf');
-                            playHighFiveSound();
-                            showScorePop(GameState.localPos.x, GameState.localPos.y, data.diff);
+                            executeHighFiveVisuals(data.from, GameState.myId, data.diff);
                         } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
-                            playAnim(document.getElementById('sprite-local'), 'anim-slap-receive'); // Slapped receives
-                            playAnim(document.getElementById('sprite-' + data.from), 'anim-slap-strike'); // Slapper strikes
-                            playSlapSound();
-                        } 
-                        // Drag Override Events
-                        else if (data.type === 'drag') {
+                            executeSlapVisuals(data.from, GameState.myId);
+                        } else if (data.type === 'drag') {
                             promoteZ(data.dragger, data.dragged);
                             GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+
+                            setHandShape(data.dragger, PATH_GRAB);
+                            setHandShape(data.dragged, PATH_SQUEEZED);
 
                             if (data.dragged === GameState.myId) {
                                 GameState.localPos.x = data.x * window.innerWidth;
@@ -707,6 +933,13 @@
                             } else if (GameState.peers[data.dragged]) {
                                 GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
                                 GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                            }
+                        } else if (data.type === 'break_free') {
+                            executeSlapVisuals(data.from, data.to);
+                            delete GameState.activeDrags[data.to];
+                            if (data.to === GameState.myId) {
+                                isDragging = false;
+                                interactingPeer = null;
                             }
                         }
                     }
