@@ -39,7 +39,7 @@
 
         .facing-left { transform: rotate(-15deg); }
 
-        /* Snappy, Slapstick Animations */
+        /* Snappy, Slapstick Animations (Wrist pivot) */
         .anim-hf { animation: highfive 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: 2px 19px; }
         @keyframes highfive {
             0% { transform: rotate(0deg) scale(1); }
@@ -55,12 +55,13 @@
             100% { transform: rotate(0deg) scale(1); }
         }
 
-        /* Receive animation: no rotation, just scale up and bounce back */
-        .anim-slap-receive { animation: slapreceive 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97); transform-origin: center center; }
+        .anim-slap-receive { animation: slapreceive 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97); transform-origin: 2px 19px; }
         @keyframes slapreceive {
-            0% { transform: scale(1); }
-            40% { transform: scale(1.4); } /* Get bigger */
-            100% { transform: scale(1); }
+            0% { transform: rotate(0deg) translateX(0); }
+            20% { transform: rotate(25deg) translateX(15px); } /* Knocked right */
+            40% { transform: rotate(-15deg) translateX(-5px); } /* Rebound */
+            60% { transform: rotate(5deg) translateX(5px); } /* Settle */
+            100% { transform: rotate(0deg) translateX(0); }
         }
 
         /* Effects */
@@ -141,14 +142,37 @@
 
     <!-- GAME UI -->
     <div id="game-ui" class="absolute inset-0 hidden pointer-events-none z-[110]">
-        <div class="absolute top-4 left-4 bg-slate-800/90 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto shadow-xl">
-            <div class="flex items-center gap-2 mb-2">
-                <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-sm">...</code>
-                <button id="btn-copy" class="p-1 hover:bg-slate-700 rounded transition-colors" title="Copy Room ID">
-                    <svg id="icon-copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    <svg id="icon-check" class="hidden text-emerald-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                </button>
+        <div class="absolute top-4 left-4 bg-slate-800/90 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto shadow-xl w-72">
+            <div class="flex items-center justify-between mb-2">
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Room ID</div>
+                <div class="flex items-center gap-1">
+                    <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-sm">...</code>
+                    <button id="btn-copy" class="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-white" title="Copy Room ID">
+                        <svg id="icon-copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        <svg id="icon-check" class="hidden text-emerald-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
+                </div>
             </div>
+
+            <div class="mb-4 border-b border-slate-700 pb-4">
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1.5">Invite Link</div>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="display-invite-link" readonly class="flex-grow bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-300 font-mono text-[10px] focus:outline-none focus:border-indigo-500">
+                    <button id="btn-copy-link" class="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors shrink-0" title="Copy Invite Link">
+                        <svg id="icon-copy-link" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        <svg id="icon-check-link" class="hidden text-white" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-4 border-b border-slate-700 pb-4">
+                <label for="volume-slider" class="text-xs text-slate-400 uppercase tracking-wider font-bold flex justify-between mb-2">
+                    <span>Sound Volume</span>
+                    <span id="volume-display" class="text-indigo-400">50%</span>
+                </label>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            </div>
+
             <div class="text-xs text-slate-300 font-medium mb-1">
                 <span id="player-count">1</span> Users Synced @ 60Hz
             </div>
@@ -173,6 +197,7 @@
 
         // --- SYNTHESIZED AUDIO ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let masterVolume = 0.5;
         
         function createNoiseBuffer(durationSec) {
             const bufferSize = audioCtx.sampleRate * durationSec;
@@ -195,8 +220,9 @@
             filter.Q.value = 1.5 + (Math.random() * 0.6 - 0.3);
             
             const gain = audioCtx.createGain();
-            gain.gain.setValueAtTime(0.8, audioCtx.currentTime); 
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1 + (Math.random() * 0.04 - 0.02));
+            const effVol = Math.max(masterVolume, 0.001); // Prevent param crash on exactly 0
+            gain.gain.setValueAtTime(0.8 * masterVolume, audioCtx.currentTime); 
+            gain.gain.exponentialRampToValueAtTime(0.01 * effVol, audioCtx.currentTime + 0.1 + (Math.random() * 0.04 - 0.02));
 
             noise.connect(filter);
             filter.connect(gain);
@@ -216,12 +242,13 @@
             filter.Q.value = 1 + Math.random();
             const gain = audioCtx.createGain();
             
-            const vol = 1 + (Math.random() * 0.2 - 0.1);
+            const vol = (1 + (Math.random() * 0.2 - 0.1)) * masterVolume;
+            const effVol = Math.max(masterVolume, 0.001);
             gain.gain.setValueAtTime(0, audioCtx.currentTime);
             gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.1 * vol, audioCtx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.1 * effVol, audioCtx.currentTime + 0.05);
             gain.gain.linearRampToValueAtTime(1.2 * vol, audioCtx.currentTime + 0.06);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2 + (Math.random()*0.05));
+            gain.gain.exponentialRampToValueAtTime(0.01 * effVol, audioCtx.currentTime + 0.2 + (Math.random()*0.05));
 
             noise.connect(filter);
             filter.connect(gain);
@@ -315,6 +342,10 @@
             setTimeout(() => lobbyEl.style.display = 'none', 200);
             gameUiEl.classList.remove('hidden');
             document.getElementById('display-room-id').innerText = GameState.roomId;
+            
+            const inviteUrl = window.location.origin + window.location.pathname + '?room=' + GameState.roomId;
+            document.getElementById('display-invite-link').value = inviteUrl;
+            
             document.getElementById('click-prompt').style.display = 'flex';
             
             GameState.baseZ[GameState.myId] = 100;
@@ -955,6 +986,29 @@
                 setTimeout(() => { ci.classList.remove('hidden'); ck.classList.add('hidden'); }, 2000);
             });
         });
+
+        document.getElementById('btn-copy-link').addEventListener('click', () => {
+            const inviteUrl = document.getElementById('display-invite-link').value;
+            const ci = document.getElementById('icon-copy-link');
+            const ck = document.getElementById('icon-check-link');
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                ci.classList.add('hidden'); ck.classList.remove('hidden');
+                setTimeout(() => { ci.classList.remove('hidden'); ck.classList.add('hidden'); }, 2000);
+            });
+        });
+
+        document.getElementById('volume-slider').addEventListener('input', (e) => {
+            masterVolume = parseFloat(e.target.value);
+            document.getElementById('volume-display').innerText = Math.round(masterVolume * 100) + '%';
+        });
+
+        // Auto-join logic if URL has ?room=...
+        const urlParams = new URLSearchParams(window.location.search);
+        const joinRoomId = urlParams.get('room');
+        if (joinRoomId) {
+            document.getElementById('input-room-id').value = joinRoomId;
+            document.getElementById('btn-join').click();
+        }
 
     </script>
 </body>
