@@ -100,7 +100,8 @@ window.Visuals = {
         
         this.setHandShape(slapperId, Assets.PATH_SLAP_STRIKE);
         setTimeout(() => this.setHandShape(slapperId, Assets.PATH_POINTER), 300);
-        this.setHandShape(slappedId, Assets.PATH_JAZZ_HAND);
+        
+        setTimeout(() => this.setHandShape(slappedId, Assets.PATH_JAZZ_HAND), 150);
         setTimeout(() => this.setHandShape(slappedId, Assets.PATH_POINTER), 400);
         
         AudioEngine.playSlapSound();

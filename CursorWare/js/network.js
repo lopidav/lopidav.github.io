@@ -99,6 +99,7 @@ window.Network = {
                 Visuals.executeSlapVisuals(data.from, GameState.myId);
             }
             else if (data.type === 'drag') {
+                GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
                 Visuals.setHandShape(data.dragger, Assets.PATH_GRAB); 
                 Visuals.setHandShape(data.dragged, Assets.PATH_SQUEEZED);
                 if (data.dragged === GameState.myId) { 
@@ -106,13 +107,26 @@ window.Network = {
                         this.broadcastData({ t: 'event', type: 'drop', dragger: GameState.myId, dragged: GameState.interactingPeer });
                         GameState.isDragging = false; GameState.interactingPeer = null;
                     }
-                    GameState.localPos.x = data.x * innerWidth; 
-                    GameState.localPos.y = data.y * innerHeight; 
+                    GameState.localPos.x = data.x * window.innerWidth; 
+                    GameState.localPos.y = data.y * window.innerHeight; 
+                } else if (GameState.peers[data.dragged]) {
+                    GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                    GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
                 }
             }
             else if (data.type === 'drop') { 
                 Visuals.setHandShape(data.dragger, Assets.PATH_POINTER); 
                 Visuals.setHandShape(data.dragged, Assets.PATH_POINTER); 
+                delete GameState.activeDrags[data.dragger];
+                if (data.x !== undefined && data.y !== undefined) {
+                    if (data.dragged === GameState.myId) {
+                        GameState.localPos.x = data.x * window.innerWidth;
+                        GameState.localPos.y = data.y * window.innerHeight;
+                    } else if (GameState.peers[data.dragged]) {
+                        GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                        GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                    }
+                }
             }
             else if (data.type === 'break_free') {
                 Visuals.executeSlapVisuals(data.from, data.to);
