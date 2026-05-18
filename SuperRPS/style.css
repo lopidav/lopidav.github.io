@@ -2,24 +2,31 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #f4f4f9 0%, #e0e6ed 100%);
+    background:#f4f4f9;
+    /* background: #1a1a2e; */
     color: #333;
     margin: 0;
     padding: 0;
     height: 100vh;
+    width: 100vw;
     overflow: hidden;
-    display: flex;
-    justify-content: center;
+    position: relative;
 }
 
 #app {
-    width: 100%;
-    max-width: 800px;
-    height: 100%;
+    background: #f4f4f9;
+    width: 850px;
+    height: 950px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    padding: 20px;
     text-align: center;
+    /* box-shadow: 0 0 30px rgba(0,0,0,0.5); */
+    overflow: hidden;
 }
 
 .screen { display: none; }
@@ -112,9 +119,12 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 250px; /* Lock height to prevent jumping */
+    min-height: 380px; /* Provide enough space for animations */
+    position: relative;
 }
-#turn-status { height: 30px; margin: 0 0 10px 0; display: flex; align-items: center; justify-content: center; }
+#turn-status { min-height: 35px; margin: 0 0 5px 0; display: flex; align-items: center; justify-content: center; padding: 0 10px; }
+#return-draft-btn, #return-end-btn { position: absolute; top: 0; right: 10px; z-index: 100; }
+#future-drafts-btn { position: absolute; top: 0; left: 10px; z-index: 100; }
 
 /* --- Player Zones --- */
 .player-zone {
@@ -183,9 +193,28 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     box-shadow: 0 0 5px rgba(241, 196, 15, 0.5);
 }
 
+.dot.fraction-filled {
+    border-color: #bdc3c7;
+    box-shadow: none;
+}
+
+/* --- Timer --- */
+.timer {
+    position: absolute;
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #e74c3c;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 2px solid #e74c3c;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    z-index: 6000;
+}
+
 /* Animated Flying Point */
 .animated-point {
-    position: fixed;
+    position: absolute;
     width: 20px;
     height: 20px;
     background: #f1c40f;
@@ -199,71 +228,82 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     margin-left: -10px;
 }
 
+.animated-point.lost {
+    background: #e74c3c;
+    box-shadow: 0 0 15px rgba(231, 76, 60, 1);
+}
+
 /* --- Cards --- */
 .cards-display {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
-    align-items: flex-start;
-    gap: 10px;
-    min-height: 115px;
-    max-height: 120px;
-    overflow-y: auto;
+    align-items: center;
+    gap: 15px;
+    min-height: 160px;
+    padding: 15px 10px 5px 10px;
+    overflow-x: auto;
+    width: 100%;
 }
+.cards-display::-webkit-scrollbar { height: 6px; }
+.cards-display::-webkit-scrollbar-thumb { background: #dfe6e9; border-radius: 3px; }
 
 .card {
-    width: 75px;
-    height: 105px;
+    width: 100px;
+    height: 140px;
     background: white;
     border: 2px solid #dfe6e9;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 5px;
-    gap: 5px;
+    padding: 8px;
+    gap: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     position: relative;
     cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .card .card-title { 
-    font-size: 0.65em; 
+    font-size: 0.85em; 
     font-weight: bold; 
     width: 100%; 
-    display: -webkit-box; 
-    -webkit-line-clamp: 3; 
-    -webkit-box-orient: vertical; 
+    white-space: nowrap; 
     overflow: hidden; 
-    word-break: break-all; 
+    text-overflow: ellipsis; 
     line-height: 1.1; 
 }
-.card .card-art { width: 100%; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; }
+.card .card-art { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; }
 
-.card-tooltip {
+/* --- Global Tooltip --- */
+.global-tooltip {
     display: none;
     position: absolute;
-    bottom: 110%;
-    left: 50%;
-    transform: translateX(-50%);
     background: rgba(30, 30, 30, 0.95);
     color: white;
-    padding: 10px;
+    padding: 10px 15px;
     border-radius: 6px;
     font-size: 0.85em;
-    width: 150px;
-    z-index: 100;
+    width: 180px;
+    text-align: center;
+    z-index: 10000;
     pointer-events: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
-.card-tooltip::after {
+.global-tooltip::after {
     content: '';
     position: absolute;
-    top: 100%; left: 50%; margin-left: -5px;
-    border-width: 5px; border-style: solid;
+    top: 100%; left: 50%; margin-left: -6px;
+    border-width: 6px; border-style: solid;
     border-color: rgba(30, 30, 30, 0.95) transparent transparent transparent;
 }
-.card:hover .card-tooltip { display: block; }
+.global-tooltip.bottom-arrow::after {
+    top: auto; bottom: 100%;
+    border-color: transparent transparent rgba(30, 30, 30, 0.95) transparent;
+}
+.global-tooltip.show { display: block; }
 
 /* --- Card Trigger Animation --- */
 @keyframes cardTriggerPulse {
@@ -272,6 +312,13 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     100% { transform: scale(1); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 }
 .card-trigger-anim { animation: cardTriggerPulse 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10; }
+
+.card-highlight {
+    transform: translateY(-8px) scale(1.05);
+    box-shadow: 0 8px 15px rgba(52, 152, 219, 0.4);
+    border-color: #3498db;
+    z-index: 10;
+}
 
 .card-container {
     display: flex;
@@ -314,7 +361,7 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
 
 /* --- Fullscreen Overlays --- */
 .overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     background: rgba(244, 244, 249, 0.95);
     backdrop-filter: blur(8px);
@@ -333,7 +380,7 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
 
 /* --- Fullscreen Modal --- */
 .modal {
-    position: fixed;
+    position: absolute;
     inset: 0;
     background: rgba(0,0,0,0.6);
     display: flex;
@@ -390,6 +437,35 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     box-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
 }
 
+/* --- RPS Move Queue --- */
+.rps-queue {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    height: 60px;
+}
+.queue-icon {
+    width: 50px;
+    height: 50px;
+    background: #fff;
+    border: 2px solid #bdc3c7;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.queue-icon:hover {
+    transform: scale(1.1);
+    border-color: #e74c3c;
+}
+.queue-icon svg { width: 28px; height: 28px; fill: #555; }
+
 /* --- Clash UI --- */
 .clash-icon {
     width: 80px; height: 80px; border-radius: 50%; background: #fff;
@@ -418,8 +494,9 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     display: flex;
     gap: 15px;
     overflow-x: auto;
-    padding: 8px 52% 8px 12px;
-    min-height: 60px;
+    overflow-y: hidden;
+    padding: 10px 52% 10px 12px;
+    min-height: 105px;
     align-items: center;
     justify-content: flex-start;
     margin: 5px 0;
@@ -456,6 +533,15 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
 }
 .history-icon svg { width: 18px; height: 18px; fill: #555; }
 
+.history-icon.interactive {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.history-icon.interactive:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
+}
+
 .history-icon.empty {
     border-color: transparent;
     background: transparent;
@@ -474,3 +560,21 @@ h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
     box-shadow: 0 0 5px rgba(241, 196, 15, 0.5);
 }
 .history-icon.winner svg { fill: #fff; }
+
+.history-icon.fraction-winner {
+    border-color: #bdc3c7;
+    box-shadow: none;
+}
+.history-icon.fraction-winner svg { fill: #555; }
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    50% { transform: translateX(2px); }
+    75% { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+}
+
+.dot.shake {
+    animation: shake 0.4s ease-in-out;
+}
