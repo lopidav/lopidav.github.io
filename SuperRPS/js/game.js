@@ -41,6 +41,10 @@ let state = {
     replayEnemyDrafts: [],
     replayMyMoves: [],
     replayEnemyMoves: [],
+    myDisabledMove: null,
+    enemyDisabledMove: null,
+    myPendingDisabledMove: null,
+    enemyPendingDisabledMove: null,
     gameEnded: false,
     phase: 'LOBBY' // LOBBY, INITIAL_DRAFT, RPS, BONUS_DRAFT, WAITING, END
 };
@@ -122,13 +126,13 @@ function setupTimesisListeners() {
             ui.draftOptions.innerHTML = '';
             SUPERPOWER_CARDS.forEach(card => {
                 const btn = document.createElement('button');
-                btn.className = 'card-btn pop-in';
+                btn.className = 'card-btn pop-in' + (card.enabled ? '' : ' disabled-card');
                 btn.innerHTML = `
                     <div class="card-title">${card.name}</div>
-                    <img class="card-art" src="${card.art}" alt="Art">
+                    ${getCardImageMarkup(card)}
                     <div class="card-desc">${card.effect}</div>
                 `;
-                btn.onclick = () => selectCard(card);
+                btn.onclick = () => { if (card.enabled) selectCard(card); };
                 ui.draftOptions.appendChild(btn);
             });
         }
@@ -189,6 +193,10 @@ function startInitialDraft(data = null) {
     state.enemyFullRoundHistory = [];
     state.mySubRoundHistory = [];
     state.enemySubRoundHistory = [];
+    state.myDisabledMove = null;
+    state.enemyDisabledMove = null;
+    state.myPendingDisabledMove = null;
+    state.enemyPendingDisabledMove = null;
     state.gameEnded = false;
     updateScores();
     updateCardDisplay();
@@ -228,7 +236,7 @@ function triggerDraft(message) {
         btn.className = 'card-btn pop-in';
         btn.innerHTML = `
             <div class="card-title">${card.name}</div>
-            <img class="card-art" src="${card.art}" alt="Art">
+            ${getCardImageMarkup(card)}
             <div class="card-desc">${card.effect}</div>
         `;
         btn.onclick = () => selectCard(card);
@@ -348,6 +356,11 @@ function checkPhaseTransition() {
 
 function startRpsPhase() {
     state.phase = 'RPS';
+
+    state.myDisabledMove = state.myPendingDisabledMove;
+    state.enemyDisabledMove = state.enemyPendingDisabledMove;
+    state.myPendingDisabledMove = null;
+    state.enemyPendingDisabledMove = null;
     
     if (isFastForwarding) {
         while (state.enemyBonusDrafts > 0) {
@@ -383,11 +396,10 @@ function updateRpsUI() {
     document.querySelectorAll('.rps-btn').forEach(btn => {
         const choice = btn.dataset.choice;
         const isSelected = state.myRpsChoices.some(c => (typeof c === 'object' ? c.move : c) === choice);
-        if (isSelected) {
-            btn.classList.add('selected');
-        } else {
-            btn.classList.remove('selected');
-        }
+        const isDisabled = state.myDisabledMove === choice;
+        
+        btn.classList.toggle('selected', isSelected);
+        btn.classList.toggle('disabled-move', isDisabled);
     });
 
     const myNeeded = getMyMaxMoves();
@@ -424,6 +436,7 @@ function updateRpsUI() {
 
 function makeRpsChoice(choice) {
     if (state.phase !== 'RPS') return;
+    if (state.myDisabledMove === choice) return;
 
     const myNeeded = getMyMaxMoves();
     const hasFlex = state.myCards.some(c => c.id === CARD_IDS.FLEXESIS);
@@ -693,6 +706,20 @@ function resolveRoundSequence() {
             wins = reEval.w; myWinTriggers = reEval.tr.me; enemyWinTriggers = reEval.tr.enemy; pyroTriggers = reEval.pyro;
         }
 
+        // Earthesis Logic
+        if (me === 'rock' && !wins.me && state.myCards.some(c => c.id === CARD_IDS.EARTHESIS)) {
+            me = 'scissors';
+            triggerCardAnimation('me', CARD_IDS.EARTHESIS);
+            let reEval = evaluate(me, enemy);
+            wins = reEval.w; myWinTriggers = reEval.tr.me; enemyWinTriggers = reEval.tr.enemy; pyroTriggers = reEval.pyro;
+        }
+        if (enemy === 'rock' && !wins.enemy && state.enemyCards.some(c => c.id === CARD_IDS.EARTHESIS)) {
+            enemy = 'scissors';
+            triggerCardAnimation('enemy', CARD_IDS.EARTHESIS);
+            let reEval = evaluate(me, enemy);
+            wins = reEval.w; myWinTriggers = reEval.tr.me; enemyWinTriggers = reEval.tr.enemy; pyroTriggers = reEval.pyro;
+        }
+
         currentRoundMyMoves.push(me);
         currentRoundEnemyMoves.push(enemy);
 
@@ -742,6 +769,16 @@ function resolveRoundSequence() {
                 ui.enemyClashIcon.classList.remove('clash-anim-down', 'clash-loser-anim');
                 ui.myClashIcon.classList.add('hidden');
                 ui.enemyClashIcon.classList.add('hidden');
+
+                // Electresis Logic
+                if (wins.me && me === 'scissors' && state.myCards.some(c => c.id === CARD_IDS.ELECTRESIS)) {
+                    state.enemyPendingDisabledMove = enemy;
+                    triggerCardAnimation('me', CARD_IDS.ELECTRESIS);
+                }
+                if (wins.enemy && enemy === 'scissors' && state.enemyCards.some(c => c.id === CARD_IDS.ELECTRESIS)) {
+                    state.myPendingDisabledMove = me;
+                    triggerCardAnimation('enemy', CARD_IDS.ELECTRESIS);
+                }
 
                 if (wins.me && wins.enemy) ui.turnStatus.textContent = "Both Players Win!";
                 else if (wins.me) ui.turnStatus.textContent = "You Win the Round!";
@@ -1031,6 +1068,14 @@ function applySoulesis() {
     state.mySubRoundHistory = state.enemySubRoundHistory;
     state.enemySubRoundHistory = tempSub;
 
+    let tempDisabled = state.myDisabledMove;
+    state.myDisabledMove = state.enemyDisabledMove;
+    state.enemyDisabledMove = tempDisabled;
+
+    let tempPending = state.myPendingDisabledMove;
+    state.myPendingDisabledMove = state.enemyPendingDisabledMove;
+    state.enemyPendingDisabledMove = tempPending;
+
     if (state.masterMyDrafts) {
         let tempMD = state.masterMyDrafts; state.masterMyDrafts = state.masterEnemyDrafts; state.masterEnemyDrafts = tempMD;
         let tempMM = state.masterMyMoves; state.masterMyMoves = state.masterEnemyMoves; state.masterEnemyMoves = tempMM;
@@ -1086,7 +1131,7 @@ function getDraftOptions(playerType, draftIndex) {
         return currentSeed / 233280;
     };
 
-    let pool = [...SUPERPOWER_CARDS];
+    let pool = SUPERPOWER_CARDS.filter(c => c.enabled);
     let options = [];
     for (let i = 0; i < DRAFT_OPTIONS_COUNT; i++) {
         if (pool.length === 0) break;
@@ -1107,7 +1152,7 @@ function updateFutureModal() {
     const renderCard = (c) => `
         <div class="card pop-in" style="cursor: default;" data-effect="${c.effect.replace(/"/g, '&quot;')}">
             <div class="card-title">${c.name}</div>
-            <img class="card-art" src="${c.art}" alt="Art">
+            ${getCardImageMarkup(c)}
         </div>`;
         
     ui.futureMyOptions.innerHTML = myOpts.map(renderCard).join('');
@@ -1146,19 +1191,34 @@ function openTimesisUI() {
             let enemyPoints = turn.enemyPoints ?? (turn.wins.enemy ? 1 : 0);
             let myPoints = turn.myPoints ?? (turn.wins.me ? 1 : 0);
             
-            let enemyIconClass = isEnemyInvisible() ? 'empty' : (turn.wins.enemy ? (enemyPoints >= 0.999 ? 'winner' : 'fraction-winner') : (turn.wins.me ? 'loser' : 'tie'));
-            let myIconClass = turn.wins.me ? (myPoints >= 0.999 ? 'winner' : 'fraction-winner') : (turn.wins.enemy ? 'loser' : 'tie');
+            let enemyIconClass = isEnemyInvisible() ? 'empty' : 'tie';
+            if (!isEnemyInvisible()) {
+                if (enemyPoints >= 0.999) enemyIconClass = 'winner';
+                else if (enemyPoints <= -0.999) enemyIconClass = 'point-lost';
+                else if (enemyPoints > 0.001) enemyIconClass = 'fraction-winner';
+                else if (enemyPoints < -0.001) enemyIconClass = 'fraction-lost';
+                else if (turn.wins.enemy) enemyIconClass = 'winner';
+                else if (turn.wins.me) enemyIconClass = 'loser';
+            }
+
+            let myIconClass = 'tie';
+            if (myPoints >= 0.999) myIconClass = 'winner';
+            else if (myPoints <= -0.999) myIconClass = 'point-lost';
+            else if (myPoints > 0.001) myIconClass = 'fraction-winner';
+            else if (myPoints < -0.001) myIconClass = 'fraction-lost';
+            else if (turn.wins.me) myIconClass = 'winner';
+            else if (turn.wins.enemy) myIconClass = 'loser';
             
             let enemyStyle = '';
-            if (turn.wins.enemy && enemyPoints > 0.001 && enemyPoints < 0.999 && !isEnemyInvisible()) {
-                let degrees = enemyPoints * 360;
-                enemyStyle = `style="background: conic-gradient(#f1c40f ${degrees}deg, #fff 0);"`;
+            if (!isEnemyInvisible() && Math.abs(enemyPoints) > 0.001 && Math.abs(enemyPoints) < 0.999) {
+                let color = enemyPoints > 0 ? '#f1c40f' : '#e74c3c';
+                enemyStyle = `style="background: conic-gradient(${color} ${Math.abs(enemyPoints) * 360}deg, #fff 0);"`;
             }
             
             let myStyle = '';
-            if (turn.wins.me && myPoints > 0.001 && myPoints < 0.999) {
-                let degrees = myPoints * 360;
-                myStyle = `style="background: conic-gradient(#f1c40f ${degrees}deg, #fff 0);"`;
+            if (Math.abs(myPoints) > 0.001 && Math.abs(myPoints) < 0.999) {
+                let color = myPoints > 0 ? '#f1c40f' : '#e74c3c';
+                myStyle = `style="background: conic-gradient(${color} ${Math.abs(myPoints) * 360}deg, #fff 0);"`;
             }
 
             let enemyIconHTML = isEnemyInvisible() ? '' : icons[turn.enemy];
@@ -1183,7 +1243,7 @@ window.handleTimesisHistoryClick = function(type, index) {
         options.forEach(card => {
             const btn = document.createElement('button');
             btn.className = 'card-btn pop-in';
-            btn.innerHTML = `<div class="card-title">${card.name}</div><img class="card-art" src="${card.art}" alt="Art"><div class="card-desc">${card.effect}</div>`;
+            btn.innerHTML = `<div class="card-title">${card.name}</div>${getCardImageMarkup(card)}<div class="card-desc">${card.effect}</div>`;
             btn.onclick = () => confirmTimesisChange('draft', card.id);
             ui.timesisDraftOptions.appendChild(btn);
         });

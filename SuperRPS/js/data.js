@@ -23,133 +23,169 @@ const SUPERPOWER_CARDS = [
         id: 1,
         name: "Intelegenesis",
         art: "https://picsum.photos/seed/brain/150/150",
-        effect: "If you win with paper - you win two times the points."
+        effect: "If you win with paper - you win two times the points.",
+        enabled: true
     },
     {
         id: 2,
         name: "Lesbianesis",
         art: "https://picsum.photos/seed/scissors/150/150",
-        effect: "If you and your opponent both scissor - you win the round."
+        effect: "If you and your opponent both play scissor - you win the round.",
+        enabled: true
     },
     {
         id: 3,
         name: "Durablesis",
         art: "https://picsum.photos/seed/rock/150/150",
-        effect: "If you played a rock - your opponent's points for this round are halved."
+        effect: "If you played a rock - your opponent's points for this round are halved.",
+        enabled: true
     },
     {
         id: 4,
         name: "Telekinesis",
         art: "https://picsum.photos/seed/telekinesis/150/150",
-        effect: "If opponent threw paper and you aren't winning - transform that paper into rock."
+        effect: "If opponent threw paper and you aren't winning - transform that paper into rock.",
+        enabled: false
     },
     {
         id: 5,
         name: "Invisibilesis",
         art: "https://picsum.photos/seed/invisible/150/150",
-        effect: "Opponent can't see your points, your cards, what you played or if you're doing a move or choosing a new card."
+        effect: "Opponent can't see your points, your cards, what you played or if you're doing a move or choosing a new card.",
+        enabled: true
     },
     {
         id: 6,
         name: "Speedesis",
         art: "https://picsum.photos/seed/speed/150/150",
-        effect: "For you there are two rounds in each round. (For your opponent it's the same number of rounds per round.)"
+        effect: "For you there are two rounds in each round. (For your opponent it's the same number of rounds per round.)",
+        enabled: true
     },
     {
         id: 7,
         name: "Pacifesis",
         art: "https://picsum.photos/seed/peace/150/150",
-        effect: "When 2 rounds in a row you play Paper and nobody gets a point (or a fraction) - win the entire match."
+        effect: "When 2 rounds in a row you play Paper and nobody gets a point (or a fraction) - win the entire match.",
+        enabled: true
     },
     {
         id: 8,
         name: "Thiefesis",
         art: "https://picsum.photos/seed/thief/150/150",
-        effect: "Next time your opponent gets a card - steal it, then this deletes itself."
+        effect: "Next time your opponent gets a card - steal it, then this deletes itself.",
+        enabled: true
     },
     {
         id: 9,
         name: "Regressesis",
         art: "https://picsum.photos/seed/regress/150/150",
-        effect: "Reset the points but not the cards."
+        effect: "Reset the points but not the cards.",
+        enabled: true
     },
     {
         id: 10,
         name: "Strengthesis",
         art: "https://picsum.photos/seed/strength/150/150",
-        effect: "If you win points with a rock you get 2 extra points."
+        effect: "If you win points with a rock you get 2 extra points.",
+        enabled: true
     },
     {
         id: 11,
         name: "Intangibilitesis",
         art: "https://picsum.photos/seed/intangible/150/150",
-        effect: "If your opponent played a rock - they can't win this round."
+        effect: "If your opponent played a rock - they can't win this round.",
+        enabled: false
     },
     {
         id: 12,
         name: "Precognitionesis",
         art: "https://picsum.photos/seed/precog/150/150",
-        effect: "You can see your and the opponent's future card options."
+        effect: "You can see your and the opponent's future card options.",
+        enabled: true
     },
     {
         id: 13,
         name: "Pyrokinesis",
         art: "https://picsum.photos/seed/pyro/150/150",
-        effect: "All your moves beside paper win against the opponent's paper."
+        effect: "All your moves beside paper win against the opponent's paper.",
+        enabled: false
     },
     {
         id: 14,
         name: "Magnetesis",
         art: "https://picsum.photos/seed/magnet/150/150",
-        effect: "If opponent threw scissors and you aren't winning - transform that scissors into rock."
+        effect: "If opponent threw scissors and you aren't winning - transform that scissors into rock.",
+        enabled: false
     },
     {
         id: 15,
         name: "Adaptesis",
         art: "https://picsum.photos/seed/adapt/150/150",
-        effect: "After a round - get an extra point for each time the same round happened in this game before."
+        effect: "After a round - get an extra point for each time the same round happened in this game before.",
+        enabled: true
     },
     {
         id: 16,
         name: "Soulesis",
         art: "https://picsum.photos/seed/soul/150/150",
-        effect: "Swap places with your opponent then destroy this card."
+        effect: "Swap places with your opponent then destroy this card.",
+        enabled: true
     },
     {
         id: 17,
         name: "Timesis",
         art: "https://picsum.photos/seed/time/150/150",
-        effect: "Change one of your choices in the past."
+        effect: "Change one of your choices in the past.",
+        enabled: false
     },
     {
         id: 18,
         name: "Agrokinesis",
         art: "https://picsum.photos/seed/flower/150/150",
-        effect: "Add a new move called Flower to your moveset. It wins against Paper and Rock but loses to Scissors."
+        effect: "Add a new move called Flower to your moveset. It wins against Paper and Rock but loses to Scissors.",
+        enabled: true
     },
     {
         id: 19,
         name: "Gastroenteresis",
         art: "https://picsum.photos/seed/stomach/150/150",
-        effect: "Your opponent gets a timer of 90 seconds. When it ticks down to 0 they lose the match. When they play a paper it adds 10 seconds to their timer."
+        effect: "Your opponent gets a timer of 90 seconds. When it ticks down to 0 they lose the match. When they play a paper it adds 10 seconds to their timer.",
+        enabled: true
     },
     {
         id: 20,
         name: "Poisonesis",
         art: "https://picsum.photos/seed/poison/150/150",
-        effect: "Your opponent loses a quarter of a point for each time you played scissors in the past."
+        effect: "Your opponent loses a quarter of a point for each time you played scissors in the past.",
+        enabled: true
     },
     {
         id: 21,
         name: "Gravitesis",
         art: "https://picsum.photos/seed/gravity/150/150",
-        effect: "If you played rock - instead of gaining points this round your opponent loses those points",
+        effect: "If you played rock - instead of you gaining points this round your opponent loses those points",
+        enabled: true
     },
     {
         id: 22,
         name: "Flexesis",
         art: "https://picsum.photos/seed/flex/150/150",
-        effect: "You can queue up your moves for the future. If you would get points for a move - you get additional points equal to how many rounds ago you queued up that move."
+        effect: "You can queue up your moves for the future. If you would get points for a move - you get additional points equal to how many rounds ago you queued up that move.",
+        enabled: true
+    },
+    {
+        id: 23,
+        name: "Earthesis",
+        art: "https://picsum.photos/seed/earth/150/150",
+        effect: "If you play rock and you aren't winning - transform it into scissors.",
+        enabled: true
+    },
+    {
+        id: 24,
+        name: "Electresis",
+        art: "https://picsum.photos/seed/electric/150/150",
+        effect: "If you played scissors and won - the move your opponent played is disabled for them in the next round.",
+        enabled: true
     }
 ];
 
@@ -175,5 +211,7 @@ const CARD_IDS = {
     GASTROENTERESIS: 19,
     POISONESIS: 20,
     GRAVITESIS: 21,
-    FLEXESIS: 22
+    FLEXESIS: 22,
+    EARTHESIS: 23,
+    ELECTRESIS: 24
 };

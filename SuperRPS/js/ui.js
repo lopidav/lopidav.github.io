@@ -70,11 +70,16 @@ function isEnemyInvisible() {
     return state.enemyCards.some(c => c.id === CARD_IDS.INVISIBILESIS) && !state.gameEnded;
 }
 
+function getCardImageMarkup(card, className = 'card-art') {
+    const localSrc = `${card.name}.png`;
+    return `<img class="${className}" src="${localSrc}" onerror="this.onerror=null; this.src='${card.art}';" alt="Art">`;
+}
+
 function createCardHtml(c, owner) {
     return `
         <div class="card pop-in" data-id="${c.id}" data-effect="${c.effect.replace(/"/g, '&quot;')}" onclick="showCardModal(${c.id}, '${owner}')">
             <div class="card-title">${c.name}</div>
-            <img class="card-art" src="${c.art}" alt="Art">
+            ${getCardImageMarkup(c)}
         </div>`;
 }
 
@@ -259,19 +264,34 @@ function updateHistoryDisplay() {
             let enemyPoints = turn.enemyPoints ?? (turn.wins.enemy ? 1 : 0);
             let myPoints = turn.myPoints ?? (turn.wins.me ? 1 : 0);
             
-            let enemyIconClass = isEnemyInvisible() ? 'empty' : (turn.wins.enemy ? (enemyPoints >= 0.999 ? 'winner' : 'fraction-winner') : (turn.wins.me ? 'loser' : 'tie'));
-            let myIconClass = turn.wins.me ? (myPoints >= 0.999 ? 'winner' : 'fraction-winner') : (turn.wins.enemy ? 'loser' : 'tie');
+            let enemyIconClass = isEnemyInvisible() ? 'empty' : 'tie';
+            if (!isEnemyInvisible()) {
+                if (enemyPoints >= 0.999) enemyIconClass = 'winner';
+                else if (enemyPoints <= -0.999) enemyIconClass = 'point-lost';
+                else if (enemyPoints > 0.001) enemyIconClass = 'fraction-winner';
+                else if (enemyPoints < -0.001) enemyIconClass = 'fraction-lost';
+                else if (turn.wins.enemy) enemyIconClass = 'winner';
+                else if (turn.wins.me) enemyIconClass = 'loser';
+            }
+
+            let myIconClass = 'tie';
+            if (myPoints >= 0.999) myIconClass = 'winner';
+            else if (myPoints <= -0.999) myIconClass = 'point-lost';
+            else if (myPoints > 0.001) myIconClass = 'fraction-winner';
+            else if (myPoints < -0.001) myIconClass = 'fraction-lost';
+            else if (turn.wins.me) myIconClass = 'winner';
+            else if (turn.wins.enemy) myIconClass = 'loser';
             
             let enemyStyle = '';
-            if (turn.wins.enemy && enemyPoints > 0.001 && enemyPoints < 0.999 && !isEnemyInvisible()) {
-                let degrees = enemyPoints * 360;
-                enemyStyle = `style="background: conic-gradient(#f1c40f ${degrees}deg, #fff 0);"`;
+            if (!isEnemyInvisible() && Math.abs(enemyPoints) > 0.001 && Math.abs(enemyPoints) < 0.999) {
+                let color = enemyPoints > 0 ? '#f1c40f' : '#e74c3c';
+                enemyStyle = `style="background: conic-gradient(${color} ${Math.abs(enemyPoints) * 360}deg, #fff 0);"`;
             }
             
             let myStyle = '';
-            if (turn.wins.me && myPoints > 0.001 && myPoints < 0.999) {
-                let degrees = myPoints * 360;
-                myStyle = `style="background: conic-gradient(#f1c40f ${degrees}deg, #fff 0);"`;
+            if (Math.abs(myPoints) > 0.001 && Math.abs(myPoints) < 0.999) {
+                let color = myPoints > 0 ? '#f1c40f' : '#e74c3c';
+                myStyle = `style="background: conic-gradient(${color} ${Math.abs(myPoints) * 360}deg, #fff 0);"`;
             }
 
             const enemyIconHTML = isEnemyInvisible() ? '' : icons[turn.enemy];
@@ -304,7 +324,9 @@ function showCardModal(id, owner = 'pool') {
     if (!card) card = SUPERPOWER_CARDS.find(c => c.id === id);
     if(!card) return;
     document.getElementById('modal-title').textContent = card.name;
-    document.getElementById('modal-art').src = card.art;
+    const modalArt = document.getElementById('modal-art');
+    modalArt.onerror = function() { this.onerror = null; this.src = card.art; };
+    modalArt.src = `${card.name}.png`;
     document.getElementById('modal-effect').textContent = card.effect;
     document.getElementById('card-modal').classList.remove('hidden');
 }
