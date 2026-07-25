@@ -1,0 +1,66 @@
+<html>
+ <head>
+  <meta charset="utf-8" name="viewport" content="user-scalable=no" />
+  <link href="./style.css" rel="stylesheet">
+  <script type="text/javascript" src="../jquery.js"></script>
+  <script type="text/javascript" src="../math.min.js"></script>
+  <script src="https://unpkg.com/interactjs/dist/interact.min.js"></script>
+  <script type="text/javascript" src="./script.js"></script>
+ </head>
+ <body style="margin-left: 10%;padding: 5%;font-size: x-large;"> 
+	Copy the following message to your clan's discord or anywhere else you want
+<br>(or <button onclick="copyText()">click here to copy</button> if you're too lazy to ctrl-c):
+
+   <pre id="textToCopy" style="    padding: 3% 1%;white-space: pre-wrap;border: solid gray;"># Always up Trophy Grind Miniwar Servers (from Fancy Lads clan [BOO])
+### rules: Only join servers for your power category (or higher). Max 2 people from the same clan are permitted in the same server. 
+Your power can be found in the ingame settings.
+-
+## - 100k-200k https://www.roblox.com/share?code=4dbf48e02c18754faa8f19206b58f24f&type=Server
+backup: https://www.roblox.com/share?code=08e0e3580e759a4c9b3542e546919368&type=Server
+## - 200k-300k https://www.roblox.com/share?code=d4e4e56918ddfc46971ff14284b19167&type=Server
+## - 300k-400k https://www.roblox.com/share?code=b9aa659ada76ee4f940cffa4abac64de&type=Server
+## - 400k-500k https://www.roblox.com/share?code=d9bc4de915ecbd4880297f396f4aa1e2&type=Server
+## - 500k-600k https://www.roblox.com/share?code=b11ca3902cd4b54db45a289f91b56196&type=Server
+## - 600k+ https://www.roblox.com/share?code=aa39308057709d4bbbc8157a801aed3d&type=Server
+-# this info might be outdated. Check https://lopidav.github.io/TrophyGrindServers for the current links.</pre>
+<script>
+function copyText() {
+  const textElement = document.getElementById("textToCopy");
+  const text = textElement.innerText;
+  navigator.clipboard.writeText(text)
+    .then(() => {
+      alert("Text copied to clipboard!");
+    })
+    .catch(err => {
+      console.error("Failed to copy text: ", err);
+    });
+}
+</script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const preElement = document.getElementById('textToCopy');
+  let text = preElement.innerHTML;
+
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[^\s]*)/g;
+
+  text = text.replace(urlRegex, (url) => {
+    // Add https:// if the link starts with www or domain directly
+    let href = url;
+    if (!url.match(/^https?:\/\//i)) {
+      href = 'https://' + url;
+    }
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
+
+  preElement.innerHTML = text;
+});
+</script>
+
+<style>
+pre a {
+  color: #0066cc;
+  text-decoration: underline;
+}
+</style>
+ </body>
+</html>
