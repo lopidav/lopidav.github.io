@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Event & Timer Dashboard</title>
+  <style>
+    :root {
+      --bg: #12131C;
+      --card-bg: #1E202E;
+      --accent: #6C5CE7;
+      --accent-hover: #5A4BD1;
+      --text: #E0E6ED;
+      --subtext: #94A3B8;
+      --border: #2D3142;
+      --active: #00B894;
+      --off: #4A5568;
+      --danger: #E74C3C;
+      --danger-hover: #C0392B;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 20px; font-size: 1.8rem; color: #FFF; text-align: center; }
+    
+    /* Global Control Bar */
+    .top-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; items-center; justify-content: space-between; gap: 16px; }
+    .vol-control { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
+    .vol-control label { color: var(--subtext); font-size: 0.85rem; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+    .vol-control input[type="range"] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    .vol-value { font-weight: bold; min-width: 40px; font-size: 0.9rem; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 30px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+    .card-header { display: flex; align-items: center; gap: 10px; }
+    .icon-placeholder { width: 36px; height: 36px; background: var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .card-title { font-size: 1.1rem; font-weight: 600; flex: 1; }
+    .btn-delete { background: transparent; border: none; color: var(--subtext); cursor: pointer; font-size: 1.1rem; padding: 2px 6px; border-radius: 4px; }
+    .btn-delete:hover { color: var(--danger); background: rgba(231, 76, 60, 0.1); }
+    
+    .timer-display { font-size: 1.6rem; font-family: monospace; font-weight: bold; color: var(--active); text-align: center; margin: 2px 0; }
+    
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    label { color: var(--subtext); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
+    
+    input, select, button { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; outline: none; }
+    button { background: var(--accent); cursor: pointer; font-weight: 600; border: none; }
+    button:hover { background: var(--accent-hover); }
+    button.secondary { background: var(--border); }
+    button.danger { background: var(--danger); }
+    button.danger:hover { background: var(--danger-hover); }
+    
+    /* 1-Click Segmented Control */
+    .mode-group { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px; gap: 2px; }
+    .mode-btn { flex: 1; background: transparent; color: var(--subtext); border: none; padding: 6px 4px; font-size: 0.75rem; font-weight: bold; border-radius: 4px; cursor: pointer; text-align: center; }
+    .mode-btn:hover { background: rgba(255,255,255,0.05); }
+    .mode-btn.active { background: var(--accent); color: #FFF; }
+    .mode-btn.active.mode-off { background: var(--off); color: #FFF; }
+    
+    .btn-group { display: flex; gap: 6px; }
+    .btn-group button { flex: 1; }
+    
+    .section-title { font-size: 1.3rem; margin: 24px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .create-form { background: var(--card-bg); padding: 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+
+    /* Modal Styling */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 10px; max-width: 400px; width: 90%; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  </style>
+</head>
+<body>
+
+  <h1>Game Event & Crafting Reminders</h1>
+
+  <div class="top-bar">
+    <div class="vol-control">
+      <label for="masterVolume">🔊 Volume</label>
+      <input type="range" id="masterVolume" min="0" max="1" step="0.05" value="0.7" oninput="setMasterVolume(this.value)">
+      <span class="vol-value" id="volVal">70%</span>
+    </div>
+    <button onclick="testNextSound()">Test Sound: <span id="testSoundName">Chime</span></button>
+  </div>
+
+  <div class="create-form">
+    <input type="text" id="customName" placeholder="Custom Reminder Name">
+    <select id="customType">
+      <option value="periodic">Periodic (Minutes)</option>
+      <option value="countdown">Countdown (Seconds)</option>
+    </select>
+    <input type="number" id="customVal" placeholder="Interval/Duration">
+    <button onclick="createCustomTimer()">Add Custom Reminder</button>
+  </div>
+
+  <div class="section-title">Fixed Periodic Events</div>
+  <div class="grid" id="periodic-container"></div>
+
+  <div class="section-title">Countdown & Craft Timers</div>
+  <div class="grid" id="countdown-container"></div>
+
+  <!-- Delete Modal -->
+  <div id="deleteModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h3 style="color:#FFF;">Confirm Deletion</h3>
+      <p id="deleteModalText" style="color:var(--subtext);">Are you sure you want to delete this reminder?</p>
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button class="danger" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Master Volume & Audio Synthesizer
+let masterVolume = parseFloat(localStorage.getItem('g_volume')) || 0.7;
+document.getElementById('masterVolume').value = masterVolume;
+document.getElementById('volVal').textContent = Math.round(masterVolume * 100) + '%';
+
+function setMasterVolume(val) {
+  masterVolume = parseFloat(val);
+  document.getElementById('volVal').textContent = Math.round(masterVolume * 100) + '%';
+  localStorage.setItem('g_volume', masterVolume);
+}
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+  if (masterVolume <= 0) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  if (type === 'chime') {
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+  } else if (type === 'alarm') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(400, audioCtx.currentTime + 0.15);
+  } else {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+  }
+
+  gain.gain.setValueAtTime(0.3 * masterVolume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.4);
+}
+
+// Sound Tester
+const soundsList = ['chime', 'alarm', 'pulse'];
+let soundTestIdx = 0;
+function testNextSound() {
+  const currentSound = soundsList[soundTestIdx];
+  playSound(currentSound);
+  document.getElementById('testSoundName').textContent = currentSound.charAt(0).toUpperCase() + currentSound.slice(1);
+  soundTestIdx = (soundTestIdx + 1) % soundsList.length;
+}
+
+function triggerAlert(timer, title) {
+  if (timer.mode === 'sound' || timer.mode === 'push') {
+    playSound(timer.soundId || 'chime');
+  }
+  if (timer.mode === 'push') {
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification("Game Reminder", { body: title, icon: timer.icon || undefined });
+      } catch (e) {
+        console.error("Notification trigger error:", e);
+      }
+    }
+  }
+}
+
+// Default Data Setup
+const defaultPeriodic = [
+  { id: 'p_weather', name: 'Weather Change', type: '15m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_raid', name: 'KOH', type: '30m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_market', name: 'Black Market', type: '1h', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: -120, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
+  { id: 'p_admin', name: 'Update (Admin Abuse)', type: 'sat_18_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
+  { id: 'p_clan', name: 'Clan Quest Refresh', type: 'mon_00_gmt', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+];
+
+const defaultCountdowns = [
+  { id: 'c_daily', name: 'Daily Reward', totalSec: 86400, remainingSec: 86400, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft36', name: 'Crafting 36h', totalSec: 129600, remainingSec: 129600, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft24', name: 'Crafting 24h', totalSec: 86400, remainingSec: 86400, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft12', name: 'Crafting 12h', totalSec: 43200, remainingSec: 43200, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+];
+
+let state = {
+  periodic: JSON.parse(localStorage.getItem('g_periodic')) || defaultPeriodic,
+  countdowns: JSON.parse(localStorage.getItem('g_countdowns')) || defaultCountdowns
+};
+
+// Migrate/Sync names for existing users
+state.periodic.forEach(p => {
+  if (p.id === 'p_raid') p.name = 'KOH';
+  if (p.id === 'p_admin') p.name = 'Update (Admin Abuse)';
+});
+
+function saveState() {
+  localStorage.setItem('g_periodic', JSON.stringify(state.periodic));
+  localStorage.setItem('g_countdowns', JSON.stringify(state.countdowns));
+}
+
+function getNextPeriodicTarget(type) {
+  const now = new Date();
+  const utcNow = now.getTime();
+
+  if (type === '15m') return Math.ceil(utcNow / (15 * 60 * 1000)) * (15 * 60 * 1000);
+  if (type === '30m') return Math.ceil(utcNow / (30 * 60 * 1000)) * (30 * 60 * 1000);
+  if (type === '1h') return Math.ceil(utcNow / (60 * 60 * 1000)) * (60 * 60 * 1000);
+  if (typeof type === 'number') return Math.ceil(utcNow / (type * 60 * 1000)) * (type * 60 * 1000);
+
+  const target = new Date();
+  if (type === 'daily_00_gmt') {
+    target.setUTCHours(0, 0, 0, 0);
+    if (target.getTime() <= utcNow) target.setUTCDate(target.getUTCDate() + 1);
+  } else if (type === 'sat_18_gmt') {
+    target.setUTCHours(18, 0, 0, 0);
+    while (target.getUTCDay() !== 6 || target.getTime() <= utcNow) {
+      target.setUTCDate(target.getUTCDate() + 1);
+    }
+  } else if (type === 'mon_00_gmt') {
+    target.setUTCHours(0, 0, 0, 0);
+    while (target.getUTCDay() !== 1 || target.getTime() <= utcNow) {
+      target.setUTCDate(target.getUTCDate() + 1);
+    }
+  }
+  return target.getTime();
+}
+
+function formatTime(ms) {
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+// Mode toggle with Push permission request
+function setMode(id, category, mode) {
+  const list = state[category];
+  const item = list.find(x => x.id === id);
+  if (!item) return;
+
+  if (mode === 'push') {
+    if ("Notification" in window) {
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission().then(perm => {
+          if (perm === "granted") {
+            applyModeChange(item, id, category, 'push');
+          } else {
+            alert("Notification permission denied. Reverting to Sound mode.");
+            applyModeChange(item, id, category, 'sound');
+          }
+        });
+        return;
+      }
+    } else {
+      alert("This browser does not support web notifications. Switching to Sound mode.");
+      mode = 'sound';
+    }
+  }
+  
+  applyModeChange(item, id, category, mode);
+}
+
+function applyModeChange(item, id, category, mode) {
+  item.mode = mode;
+  saveState();
+
+  const group = document.getElementById(`mode-group-${id}`);
+  if (group) {
+    group.querySelectorAll('.mode-btn').forEach(btn => {
+      const isTarget = btn.dataset.mode === mode;
+      btn.classList.toggle('active', isTarget);
+      btn.classList.toggle('mode-off', isTarget && mode === 'off');
+    });
+  }
+}
+
+// Modal Delete Logic
+let deleteTarget = null;
+function promptDelete(id, category, name) {
+  deleteTarget = { id, category };
+  document.getElementById('deleteModalText').textContent = `Are you sure you want to delete "${name}"?`;
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+  deleteTarget = null;
+  document.getElementById('deleteModal').style.display = 'none';
+}
+
+function confirmDelete() {
+  if (!deleteTarget) return;
+  const { id, category } = deleteTarget;
+  state[category] = state[category].filter(x => x.id !== id);
+  saveState();
+  closeDeleteModal();
+  renderCards();
+}
+
+// Render DOM Cards
+function renderCards() {
+  const pContainer = document.getElementById('periodic-container');
+  pContainer.innerHTML = '';
+
+  state.periodic.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="icon-placeholder">📌</div>
+        <div class="card-title">${item.name}</div>
+        ${item.isCustom ? `<button class="btn-delete" title="Delete Reminder" onclick="promptDelete('${item.id}', 'periodic', '${item.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
+      </div>
+      <div class="timer-display" id="display-${item.id}">--:--:--</div>
+      <div class="field">
+        <label>Alert Mode</label>
+        <div class="mode-group" id="mode-group-${item.id}">
+          <button class="mode-btn ${item.mode === 'off' ? 'active mode-off' : ''}" data-mode="off" onclick="setMode('${item.id}', 'periodic', 'off')">OFF</button>
+          <button class="mode-btn ${item.mode === 'sound' ? 'active' : ''}" data-mode="sound" onclick="setMode('${item.id}', 'periodic', 'sound')">SOUND</button>
+          <button class="mode-btn ${item.mode === 'push' ? 'active' : ''}" data-mode="push" onclick="setMode('${item.id}', 'periodic', 'push')">PUSH</button>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="field">
+          <label>Offset (Sec)</label>
+          <input type="number" value="${item.offsetSec}" onchange="updatePeriodic('${item.id}', 'offsetSec', parseInt(this.value) || 0)">
+        </div>
+        <div class="field">
+          <label>Sound</label>
+          <select onchange="updatePeriodic('${item.id}', 'soundId', this.value)">
+            <option value="chime" ${item.soundId === 'chime' ? 'selected' : ''}>Chime</option>
+            <option value="alarm" ${item.soundId === 'alarm' ? 'selected' : ''}>Alarm</option>
+            <option value="pulse" ${item.soundId === 'pulse' ? 'selected' : ''}>Pulse</option>
+          </select>
+        </div>
+      </div>
+    `;
+    pContainer.appendChild(card);
+  });
+
+  const cContainer = document.getElementById('countdown-container');
+  cContainer.innerHTML = '';
+
+  state.countdowns.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="icon-placeholder">⏳</div>
+        <div class="card-title">${item.name}</div>
+        ${item.isCustom ? `<button class="btn-delete" title="Delete Reminder" onclick="promptDelete('${item.id}', 'countdowns', '${item.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
+      </div>
+      <div class="timer-display" id="display-${item.id}">--:--:--</div>
+      <div class="field">
+        <label>Alert Mode</label>
+        <div class="mode-group" id="mode-group-${item.id}">
+          <button class="mode-btn ${item.mode === 'off' ? 'active mode-off' : ''}" data-mode="off" onclick="setMode('${item.id}', 'countdowns', 'off')">OFF</button>
+          <button class="mode-btn ${item.mode === 'sound' ? 'active' : ''}" data-mode="sound" onclick="setMode('${item.id}', 'countdowns', 'sound')">SOUND</button>
+          <button class="mode-btn ${item.mode === 'push' ? 'active' : ''}" data-mode="push" onclick="setMode('${item.id}', 'countdowns', 'push')">PUSH</button>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button id="btn-pause-${item.id}" onclick="togglePauseCountdown('${item.id}')">${item.isPaused ? 'Start/Resume' : 'Pause'}</button>
+        <button class="secondary" onclick="resetCountdown('${item.id}')">Reset</button>
+      </div>
+      <div class="controls">
+        <div class="field">
+          <label>Edit Time (s)</label>
+          <input type="number" id="input-edit-${item.id}" value="${item.remainingSec}" onchange="editCountdown('${item.id}', parseInt(this.value) || 0)">
+        </div>
+        <div class="field">
+          <label>Sound</label>
+          <select onchange="updateCountdown('${item.id}', 'soundId', this.value)">
+            <option value="chime" ${item.soundId === 'chime' ? 'selected' : ''}>Chime</option>
+            <option value="alarm" ${item.soundId === 'alarm' ? 'selected' : ''}>Alarm</option>
+            <option value="pulse" ${item.soundId === 'pulse' ? 'selected' : ''}>Pulse</option>
+          </select>
+        </div>
+      </div>
+    `;
+    cContainer.appendChild(card);
+  });
+  
+  updateTimerDisplays();
+}
+
+function createCustomTimer() {
+  const name = document.getElementById('customName').value || 'Custom Event';
+  const type = document.getElementById('customType').value;
+  const val = parseInt(document.getElementById('customVal').value) || 10;
+
+  if (type === 'periodic') {
+    state.periodic.push({
+      id: 'custom_' + Date.now(),
+      name: name,
+      type: val,
+      offsetSec: 0,
+      mode: 'off',
+      soundId: 'chime',
+      lastTrigger: 0,
+      isCustom: true
+    });
+  } else {
+    state.countdowns.push({
+      id: 'custom_' + Date.now(),
+      name: name,
+      totalSec: val,
+      remainingSec: val,
+      lastEdit: Date.now(),
+      isPaused: true,
+      mode: 'off',
+      soundId: 'chime',
+      isCustom: true
+    });
+  }
+  saveState();
+  renderCards();
+}
+
+function updatePeriodic(id, prop, val) {
+  const item = state.periodic.find(x => x.id === id);
+  if (item) item[prop] = val;
+  saveState();
+}
+
+function updateCountdown(id, prop, val) {
+  const item = state.countdowns.find(x => x.id === id);
+  if (item) item[prop] = val;
+  saveState();
+}
+
+function togglePauseCountdown(id) {
+  const item = state.countdowns.find(x => x.id === id);
+  if (!item) return;
+
+  if (!item.isPaused) {
+    // Pausing
+    const elapsed = Math.floor((Date.now() - item.lastEdit) / 1000);
+    item.remainingSec = Math.max(0, item.remainingSec - elapsed);
+    item.isPaused = true;
+  } else {
+    // Resuming or Starting
+    const elapsed = item.isPaused ? 0 : Math.floor((Date.now() - item.lastEdit) / 1000);
+    const rem = Math.max(0, item.remainingSec - elapsed);
+
+    // Auto-Reset if starting from 0
+    if (rem <= 0 || item.remainingSec <= 0) {
+      item.remainingSec = item.totalSec;
+      const input = document.getElementById(`input-edit-${id}`);
+      if (input) input.value = item.remainingSec;
+    }
+
+    // Auto switch mode to sound if currently off
+    if (item.mode === 'off') {
+      setMode(id, 'countdowns', 'sound');
+    }
+
+    item.lastEdit = Date.now();
+    item.isPaused = false;
+  }
+
+  saveState();
+  const btn = document.getElementById(`btn-pause-${id}`);
+  if (btn) btn.textContent = item.isPaused ? 'Start/Resume' : 'Pause';
+  updateTimerDisplays();
+}
+
+function resetCountdown(id) {
+  const item = state.countdowns.find(x => x.id === id);
+  if (!item) return;
+  item.remainingSec = item.totalSec;
+  item.lastEdit = Date.now();
+  item.isPaused = true;
+  saveState();
+
+  const btn = document.getElementById(`btn-pause-${id}`);
+  if (btn) btn.textContent = 'Start/Resume';
+  
+  const input = document.getElementById(`input-edit-${id}`);
+  if (input) input.value = item.remainingSec;
+
+  updateTimerDisplays();
+}
+
+function editCountdown(id, newSec) {
+  const item = state.countdowns.find(x => x.id === id);
+  if (!item) return;
+  item.remainingSec = newSec;
+  item.lastEdit = Date.now();
+  saveState();
+  updateTimerDisplays();
+}
+
+// Displays & Tick Engine
+function updateTimerDisplays() {
+  const now = Date.now();
+
+  state.periodic.forEach(item => {
+    const el = document.getElementById(`display-${item.id}`);
+    if (!el) return;
+    const nextTarget = getNextPeriodicTarget(item.type);
+    const alarmTime = nextTarget + (item.offsetSec * 1000);
+    const diff = alarmTime - now;
+    el.textContent = formatTime(diff);
+
+    if (now >= alarmTime && item.lastTrigger < nextTarget - 1000) {
+      item.lastTrigger = nextTarget;
+      triggerAlert(item, `${item.name} Event Now!`);
+      saveState();
+    }
+  });
+
+  state.countdowns.forEach(item => {
+    const el = document.getElementById(`display-${item.id}`);
+    if (!el) return;
+    let rem = item.remainingSec;
+    if (!item.isPaused) {
+      const elapsed = Math.floor((now - item.lastEdit) / 1000);
+      rem = Math.max(0, item.remainingSec - elapsed);
+      if (rem === 0 && item.remainingSec > 0) {
+        item.remainingSec = 0;
+        item.isPaused = true;
+        triggerAlert(item, `${item.name} Timer Finished!`);
+        saveState();
+        
+        const btn = document.getElementById(`btn-pause-${item.id}`);
+        if (btn) btn.textContent = 'Start/Resume';
+      }
+    }
+    el.textContent = formatTime(rem * 1000);
+  });
+}
+
+setInterval(updateTimerDisplays, 1000);
+renderCards();
+</script>
+</body>
+</html>
