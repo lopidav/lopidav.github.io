@@ -265,7 +265,7 @@ function triggerAlert(timer, title) {
   }
   if (timer.mode === 'push' && "Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification("Game Reminder", { body: title, icon: timer.icon || undefined });
+      new Notification("Miniwar: " + triggerAlert.name, { body: title, icon: timer.icon || undefined });
     } catch (e) {
       console.error(e);
     }
