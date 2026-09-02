@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game Event & Timer Dashboard</title>
+  <link rel="icon" href="icon.png" type="image/png">
   <style>
     :root {
       --bg: #12131C;
@@ -29,8 +30,51 @@
     .vol-value { font-weight: bold; min-width: 40px; font-size: 0.9rem; }
 
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 30px; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; }
     
+    /* Base Card Styling */
+    .card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      padding: 16px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px; 
+      position: relative; 
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    /* OFF Card State - Muted background, but Title & Mode Toggles stay crisp */
+    .card.off {
+      background: rgba(18, 20, 29, 0.85);
+      border-color: #232635;
+    }
+    .card.off .timer-display { color: var(--off) !important; opacity: 0.7; }
+    .card.off .controls, 
+    .card.off .btn-group, 
+    .card.off .interval-badge {
+      opacity: 0.5;
+    }
+    .card.off .card-header, 
+    .card.off .mode-group {
+      opacity: 1 !important;
+      filter: none !important;
+    }
+
+    /* Expired Card State - Red tint background, Title & Mode Toggles stay crisp */
+    .card.expired {
+      background: rgba(231, 76, 60, 0.12);
+      border-color: rgba(231, 76, 60, 0.6);
+      box-shadow: inset 0 0 15px rgba(231, 76, 60, 0.15);
+    }
+    .card.expired .timer-display { color: var(--danger) !important; }
+    .card.expired .card-header, 
+    .card.expired .mode-group {
+      opacity: 1 !important;
+      filter: none !important;
+    }
+
+    /* Big Plus Creation Card */
     .card.create-card { 
       border: 2px dashed var(--border); 
       background: rgba(30, 32, 46, 0.4); 
@@ -40,7 +84,6 @@
       justify-content: center; 
       min-height: 250px; 
       cursor: pointer; 
-      transition: border-color 0.2s, background 0.2s; 
     }
     .card.create-card:hover { border-color: var(--accent); background: rgba(108, 92, 231, 0.08); }
     .plus-icon { font-size: 3.5rem; color: var(--subtext); line-height: 1; font-weight: 300; }
@@ -49,7 +92,7 @@
 
     .card-header { display: flex; align-items: center; gap: 10px; }
     .icon-placeholder { width: 36px; height: 36px; background: var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
-    .card-title { font-size: 1.1rem; font-weight: 600; flex: 1; }
+    .card-title { font-size: 1.1rem; font-weight: 600; flex: 1; color: #FFF; }
     
     .title-input { background: transparent; border: 1px solid transparent; color: #FFF; font-size: 1.1rem; font-weight: 600; width: 100%; border-radius: 4px; padding: 2px 4px; }
     .title-input:hover, .title-input:focus { border-color: var(--border); background: var(--bg); }
@@ -60,8 +103,6 @@
     .btn-delete:hover { color: var(--danger); background: rgba(231, 76, 60, 0.1); }
     
     .timer-display { font-size: 1.6rem; font-family: monospace; font-weight: bold; color: var(--active); text-align: center; margin: 2px 0; transition: color 0.3s ease; }
-    .timer-display.expired { color: var(--danger) !important; }
-    .timer-display.off { color: var(--off) !important; }
     
     .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; }
     .field { display: flex; flex-direction: column; gap: 4px; }
@@ -136,10 +177,12 @@
 // Time Helper Functions
 function parseTimeToSeconds(str) {
   if (typeof str === 'number') return str;
-  if (!str) return 0;
-  
-  const isNegative = str.trim().startsWith('-');
-  let cleanStr = str.replace('-', '').trim().toLowerCase();
+  if (str === null || str === undefined) return null;
+  const trimmed = String(str).trim();
+  if (trimmed === '') return null;
+
+  const isNegative = trimmed.startsWith('-');
+  let cleanStr = trimmed.replace('-', '').trim().toLowerCase();
 
   let totalSec = 0;
   if (cleanStr.includes(':')) {
@@ -158,7 +201,8 @@ function parseTimeToSeconds(str) {
       totalSec = hours * 3600 + mins * 60 + secs;
     } else {
       const num = parseInt(cleanStr, 10);
-      totalSec = isNaN(num) ? 0 : num;
+      if (isNaN(num)) return null;
+      totalSec = num;
     }
   }
 
@@ -176,7 +220,7 @@ function secondsToHms(sec) {
   return `${prefix}${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
 }
 
-// Master Volume & Audio Synthesizer
+// Master Volume & Sound Synthesizer
 let masterVolume = parseFloat(localStorage.getItem('g_volume')) || 0.7;
 document.getElementById('masterVolume').value = masterVolume;
 document.getElementById('volVal').textContent = Math.round(masterVolume * 100) + '%';
@@ -264,14 +308,14 @@ function triggerAlert(timer, title) {
   }
   if (timer.mode === 'push' && "Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification(timer.name, { body: title, icon: timer.icon || undefined });
+      new Notification(timer.name, { body: title, icon: timer.icon || 'icon.png' });
     } catch (e) {
       console.error(e);
     }
   }
 }
 
-// Default Timers
+// Default Timers Setup
 const defaultPeriodic = [
   { id: 'p_weather', name: 'Weather Change', type: '15m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
   { id: 'p_raid', name: 'KOH', type: '30m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
@@ -317,7 +361,7 @@ function getIntervalMs(type) {
   if (type === '1h') return 60 * 60 * 1000;
   if (typeof type === 'number') return type * 1000;
   const parsed = parseTimeToSeconds(type);
-  return parsed > 0 ? parsed * 1000 : 15 * 60 * 1000;
+  return (parsed && parsed > 0) ? parsed * 1000 : 15 * 60 * 1000;
 }
 
 function getLatestCalendarBoundary(type, targetMs) {
@@ -363,7 +407,6 @@ function getNextCalendarBoundary(type, currentBoundaryMs) {
     while (d.getUTCDay() !== 1 || d.getTime() <= currentBoundaryMs) {
       d.setUTCDate(d.getUTCDate() + 1);
     }
-    return d.getTime();
   }
   return currentBoundaryMs + 86400000;
 }
@@ -398,7 +441,18 @@ function formatTime(ms) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Startup Offline Check
+// Page Load Sync
+function syncPeriodicOnLoad() {
+  const now = Date.now();
+  state.periodic.forEach(item => {
+    const { E } = getPeriodicTargetAndDiff(item, now);
+    if (item.lastTrigger < E) {
+      item.lastTrigger = E;
+    }
+  });
+  saveState();
+}
+
 function checkOfflineCountdownsOnLoad() {
   const now = Date.now();
   let changed = false;
@@ -468,24 +522,58 @@ function updateCustomTitle(id, category, newName) {
 
 function updatePeriodicOffset(id, valStr) {
   const item = state.periodic.find(x => x.id === id);
-  if (item) {
-    item.offsetSec = parseTimeToSeconds(valStr);
-    saveState();
-    const input = document.getElementById(`input-offset-${id}`);
-    if (input) input.value = secondsToHms(item.offsetSec);
-    updateTimerDisplays();
+  if (!item) return;
+
+  let parsed = parseTimeToSeconds(valStr);
+  if (parsed === null) {
+    const defItem = defaultPeriodic.find(d => d.id === id);
+    parsed = defItem ? defItem.offsetSec : 0;
   }
+
+  item.offsetSec = parsed;
+  saveState();
+  const input = document.getElementById(`input-offset-${id}`);
+  if (input) input.value = secondsToHms(item.offsetSec);
+  updateTimerDisplays();
 }
 
 function updatePeriodicInterval(id, valStr) {
   const item = state.periodic.find(x => x.id === id);
-  if (item) {
-    item.type = Math.max(1, parseTimeToSeconds(valStr));
-    saveState();
-    const input = document.getElementById(`input-interval-${id}`);
-    if (input) input.value = secondsToHms(item.type);
-    updateTimerDisplays();
+  if (!item) return;
+
+  let parsed = parseTimeToSeconds(valStr);
+  if (parsed === null || parsed <= 0) {
+    parsed = 900; // 15 minutes default
   }
+
+  item.type = parsed;
+  saveState();
+  const input = document.getElementById(`input-interval-${id}`);
+  if (input) input.value = secondsToHms(item.type);
+  updateTimerDisplays();
+}
+
+function editCountdown(id, valStr) {
+  const item = state.countdowns.find(x => x.id === id);
+  if (!item) return;
+
+  let parsed = parseTimeToSeconds(valStr);
+  
+  // If deleted or cleared, revert to default timing for this reminder
+  if (parsed === null) {
+    const defItem = defaultCountdowns.find(d => d.id === id);
+    parsed = defItem ? defItem.totalSec : (item.totalSec || 3600);
+  }
+
+  item.remainingSec = parsed;
+  item.totalSec = parsed;
+  item.lastEdit = Date.now();
+  saveState();
+
+  const input = document.getElementById(`input-edit-${id}`);
+  if (input) input.value = secondsToHms(item.remainingSec);
+
+  updateTimerDisplays();
 }
 
 // Delete Confirmation
@@ -510,7 +598,7 @@ function confirmDelete() {
   renderCards();
 }
 
-// Creation
+// Custom Item Creation
 function addCustomPeriodicFromCard() {
   state.periodic.push({
     id: 'custom_' + Date.now(),
@@ -550,6 +638,7 @@ function renderCards() {
   state.periodic.forEach(item => {
     const card = document.createElement('div');
     card.className = 'card';
+    card.id = `card-${item.id}`;
     card.innerHTML = `
       <div class="card-header">
         <div class="icon-placeholder">📌</div>
@@ -558,7 +647,11 @@ function renderCards() {
           `<div class="card-title">${item.name}</div>`}
         ${item.isCustom ? `<button class="btn-delete" title="Delete Reminder" onclick="promptDelete('${item.id}', 'periodic', '${item.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
       </div>
-      ${!item.isCustom ? `<div class="interval-badge">${getIntervalText(item.type)}</div>` : ''}
+      ${!item.isCustom ? `<div class="interval-badge">${getIntervalText(item.type)}</div>` : `
+      <div class="field" style="width:100%;">
+        <label>Interval</label>
+        <input type="text" id="input-interval-${item.id}" value="${secondsToHms(item.type)}" onchange="updatePeriodicInterval('${item.id}', this.value)" placeholder="00h 15m 00s">
+      </div>`}
       <div class="timer-display" id="display-${item.id}">--:--:--</div>
       <div class="field">
         <label>Alert Mode</label>
@@ -573,11 +666,6 @@ function renderCards() {
           <label>Offset Time</label>
           <input type="text" id="input-offset-${item.id}" value="${secondsToHms(item.offsetSec)}" onchange="updatePeriodicOffset('${item.id}', this.value)" placeholder="00h 00m 00s">
         </div>
-        ${item.isCustom ? `
-        <div class="field">
-          <label>Interval</label>
-          <input type="text" id="input-interval-${item.id}" value="${secondsToHms(item.type)}" onchange="updatePeriodicInterval('${item.id}', this.value)" placeholder="00h 15m 00s">
-        </div>` : `
         <div class="field">
           <label>Sound</label>
           <select onchange="updatePeriodic('${item.id}', 'soundId', this.value)">
@@ -585,7 +673,7 @@ function renderCards() {
             <option value="alarm" ${item.soundId === 'alarm' ? 'selected' : ''}>Alarm</option>
             <option value="pulse" ${item.soundId === 'pulse' ? 'selected' : ''}>Pulse</option>
           </select>
-        </div>`}
+        </div>
       </div>
     `;
     pContainer.appendChild(card);
@@ -606,6 +694,7 @@ function renderCards() {
   state.countdowns.forEach(item => {
     const card = document.createElement('div');
     card.className = 'card';
+    card.id = `card-${item.id}`;
     card.innerHTML = `
       <div class="card-header">
         <div class="icon-placeholder">⏳</div>
@@ -704,6 +793,10 @@ function togglePauseCountdown(id) {
 function resetCountdown(id) {
   const item = state.countdowns.find(x => x.id === id);
   if (!item) return;
+
+  // Reset to initial default total duration
+  const defItem = defaultCountdowns.find(d => d.id === id);
+  item.totalSec = defItem ? defItem.totalSec : (item.totalSec || 3600);
   item.remainingSec = item.totalSec;
   item.lastEdit = Date.now();
   item.isPaused = true;
@@ -718,20 +811,6 @@ function resetCountdown(id) {
   updateTimerDisplays();
 }
 
-function editCountdown(id, valStr) {
-  const item = state.countdowns.find(x => x.id === id);
-  if (!item) return;
-  item.remainingSec = parseTimeToSeconds(valStr);
-  item.totalSec = item.remainingSec;
-  item.lastEdit = Date.now();
-  saveState();
-
-  const input = document.getElementById(`input-edit-${id}`);
-  if (input) input.value = secondsToHms(item.remainingSec);
-
-  updateTimerDisplays();
-}
-
 // 1-Second Timer Tick Engine
 function updateTimerDisplays() {
   const now = Date.now();
@@ -739,33 +818,34 @@ function updateTimerDisplays() {
   // Periodic Reminders Process
   state.periodic.forEach(item => {
     const el = document.getElementById(`display-${item.id}`);
-    if (!el) return;
+    const card = document.getElementById(`card-${item.id}`);
+    if (!el || !card) return;
 
     const { E, A, A_next } = getPeriodicTargetAndDiff(item, now);
 
-    // Trigger check
     if (now >= A && item.lastTrigger < E) {
       item.lastTrigger = E;
       saveState();
       triggerAlert(item, `Event Starting Now!`);
     }
 
-    // Remaining time calculation
     const diff = item.lastTrigger >= E ? A_next - now : A - now;
     el.textContent = formatTime(diff);
 
-    // Mute gray if OFF
+    // Apply entire card color filter tinting
     if (item.mode === 'off') {
-      el.classList.add('off');
+      card.classList.add('off');
     } else {
-      el.classList.remove('off');
+      card.classList.remove('off');
     }
   });
 
   // Countdown Reminders Process
   state.countdowns.forEach(item => {
     const el = document.getElementById(`display-${item.id}`);
-    if (!el) return;
+    const card = document.getElementById(`card-${item.id}`);
+    if (!el || !card) return;
+
     let rem = item.remainingSec;
     
     if (!item.isPaused) {
@@ -784,22 +864,23 @@ function updateTimerDisplays() {
 
     el.textContent = formatTime(rem * 1000);
     
-    // Mode OFF turns display gray; 0 time turns display red
+    // Apply card styling states
     if (item.mode === 'off') {
-      el.classList.add('off');
-      el.classList.remove('expired');
+      card.classList.add('off');
+      card.classList.remove('expired');
     } else {
-      el.classList.remove('off');
+      card.classList.remove('off');
       if (rem === 0) {
-        el.classList.add('expired');
+        card.classList.add('expired');
       } else {
-        el.classList.remove('expired');
+        card.classList.remove('expired');
       }
     }
   });
 }
 
-// Init
+// Initial Run
+syncPeriodicOnLoad();
 checkOfflineCountdownsOnLoad();
 renderCards();
 renderLogs();
