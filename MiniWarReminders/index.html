@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game Event & Timer Dashboard</title>
-  <link rel="icon" type="image/png" href="icon.png">
   <style>
     :root {
       --bg: #12131C;
@@ -32,7 +31,6 @@
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 30px; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; }
     
-    /* Big Plus Custom Card */
     .card.create-card { 
       border: 2px dashed var(--border); 
       background: rgba(30, 32, 46, 0.4); 
@@ -63,6 +61,7 @@
     
     .timer-display { font-size: 1.6rem; font-family: monospace; font-weight: bold; color: var(--active); text-align: center; margin: 2px 0; transition: color 0.3s ease; }
     .timer-display.expired { color: var(--danger) !important; }
+    .timer-display.off { color: var(--off) !important; }
     
     .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; }
     .field { display: flex; flex-direction: column; gap: 4px; }
@@ -134,7 +133,7 @@
   </div>
 
 <script>
-// Time Helper Functions: XXh XXm XXs parsing & formatting
+// Time Helper Functions
 function parseTimeToSeconds(str) {
   if (typeof str === 'number') return str;
   if (!str) return 0;
@@ -225,7 +224,7 @@ function testNextSound() {
   soundTestIdx = (soundTestIdx + 1) % soundsList.length;
 }
 
-// Activity Log Management
+// Activity Log
 let logs = JSON.parse(localStorage.getItem('g_logs')) || [];
 
 function addLogEntry(title) {
@@ -259,25 +258,25 @@ function clearLogs() {
 }
 
 function triggerAlert(timer, title) {
-  addLogEntry(`${timer.name} - ${title}`);
-  if (timer.mode === 'sound' || timer.mode === 'push') {
+  if (timer.mode !== 'off') {
+    addLogEntry(`${timer.name} - ${title}`);
     playSound(timer.soundId || 'chime');
   }
   if (timer.mode === 'push' && "Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification("Miniwar: " + triggerAlert.name, { body: title, icon: timer.icon || undefined });
+      new Notification(timer.name, { body: title, icon: timer.icon || undefined });
     } catch (e) {
       console.error(e);
     }
   }
 }
 
-// Default Timers Setup
+// Default Timers
 const defaultPeriodic = [
   { id: 'p_weather', name: 'Weather Change', type: '15m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
   { id: 'p_raid', name: 'KOH', type: '30m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
   { id: 'p_market', name: 'Black Market', type: '1h', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
-  { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
+  { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: -120, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
   { id: 'p_admin', name: 'Update (Admin Abuse)', type: 'sat_18_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
   { id: 'p_clan', name: 'Clan Quest Refresh', type: 'mon_00_gmt', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
 ];
@@ -311,36 +310,83 @@ function getIntervalText(type) {
   return `Interval: Every ${secondsToHms(sec)}`;
 }
 
-function getNextPeriodicTarget(type) {
-  const now = new Date();
-  const utcNow = now.getTime();
+// Precise Periodic Math Engine
+function getIntervalMs(type) {
+  if (type === '15m') return 15 * 60 * 1000;
+  if (type === '30m') return 30 * 60 * 1000;
+  if (type === '1h') return 60 * 60 * 1000;
+  if (typeof type === 'number') return type * 1000;
+  const parsed = parseTimeToSeconds(type);
+  return parsed > 0 ? parsed * 1000 : 15 * 60 * 1000;
+}
 
-  if (type === '15m') return Math.ceil(utcNow / (15 * 60 * 1000)) * (15 * 60 * 1000);
-  if (type === '30m') return Math.ceil(utcNow / (30 * 60 * 1000)) * (30 * 60 * 1000);
-  if (type === '1h') return Math.ceil(utcNow / (60 * 60 * 1000)) * (60 * 60 * 1000);
-  
-  const numVal = typeof type === 'number' ? type : parseTimeToSeconds(type);
-  if (!isNaN(numVal) && numVal > 0) {
-    const ms = numVal * 1000;
-    return Math.ceil(utcNow / ms) * ms;
-  }
-
-  const target = new Date();
+function getLatestCalendarBoundary(type, targetMs) {
+  const d = new Date(targetMs);
   if (type === 'daily_00_gmt') {
-    target.setUTCHours(0, 0, 0, 0);
-    if (target.getTime() <= utcNow) target.setUTCDate(target.getUTCDate() + 1);
-  } else if (type === 'sat_18_gmt') {
-    target.setUTCHours(18, 0, 0, 0);
-    while (target.getUTCDay() !== 6 || target.getTime() <= utcNow) {
-      target.setUTCDate(target.getUTCDate() + 1);
-    }
-  } else if (type === 'mon_00_gmt') {
-    target.setUTCHours(0, 0, 0, 0);
-    while (target.getUTCDay() !== 1 || target.getTime() <= utcNow) {
-      target.setUTCDate(target.getUTCDate() + 1);
-    }
+    d.setUTCHours(0, 0, 0, 0);
+    if (d.getTime() > targetMs) d.setUTCDate(d.getUTCDate() - 1);
+    return d.getTime();
   }
-  return target.getTime();
+  if (type === 'sat_18_gmt') {
+    d.setUTCHours(18, 0, 0, 0);
+    while (d.getUTCDay() !== 6 || d.getTime() > targetMs) {
+      d.setUTCDate(d.getUTCDate() - 1);
+    }
+    return d.getTime();
+  }
+  if (type === 'mon_00_gmt') {
+    d.setUTCHours(0, 0, 0, 0);
+    while (d.getUTCDay() !== 1 || d.getTime() > targetMs) {
+      d.setUTCDate(d.getUTCDate() - 1);
+    }
+    return d.getTime();
+  }
+  return targetMs;
+}
+
+function getNextCalendarBoundary(type, currentBoundaryMs) {
+  const d = new Date(currentBoundaryMs + 1000);
+  if (type === 'daily_00_gmt') {
+    d.setUTCHours(0, 0, 0, 0);
+    while (d.getTime() <= currentBoundaryMs) d.setUTCDate(d.getUTCDate() + 1);
+    return d.getTime();
+  }
+  if (type === 'sat_18_gmt') {
+    d.setUTCHours(18, 0, 0, 0);
+    while (d.getUTCDay() !== 6 || d.getTime() <= currentBoundaryMs) {
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return d.getTime();
+  }
+  if (type === 'mon_00_gmt') {
+    d.setUTCHours(0, 0, 0, 0);
+    while (d.getUTCDay() !== 1 || d.getTime() <= currentBoundaryMs) {
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return d.getTime();
+  }
+  return currentBoundaryMs + 86400000;
+}
+
+function getPeriodicTargetAndDiff(item, now) {
+  const offsetMs = (item.offsetSec || 0) * 1000;
+  const targetTime = now - offsetMs;
+  const isCalendar = ['daily_00_gmt', 'sat_18_gmt', 'mon_00_gmt'].includes(item.type);
+
+  let E, E_next;
+  if (isCalendar) {
+    E = getLatestCalendarBoundary(item.type, targetTime);
+    E_next = getNextCalendarBoundary(item.type, E);
+  } else {
+    const I = getIntervalMs(item.type);
+    E = Math.floor(targetTime / I) * I;
+    E_next = E + I;
+  }
+
+  const A = E + offsetMs;
+  const A_next = E_next + offsetMs;
+
+  return { E, A, E_next, A_next };
 }
 
 function formatTime(ms) {
@@ -352,7 +398,7 @@ function formatTime(ms) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Page-Load Offline Countdown Expiration Check
+// Startup Offline Check
 function checkOfflineCountdownsOnLoad() {
   const now = Date.now();
   let changed = false;
@@ -409,9 +455,9 @@ function applyModeChange(item, id, category, mode) {
       btn.classList.toggle('mode-off', isTarget && mode === 'off');
     });
   }
+  updateTimerDisplays();
 }
 
-// Inline Custom Editing Functions
 function updateCustomTitle(id, category, newName) {
   const item = state[category].find(x => x.id === id);
   if (item) {
@@ -427,6 +473,7 @@ function updatePeriodicOffset(id, valStr) {
     saveState();
     const input = document.getElementById(`input-offset-${id}`);
     if (input) input.value = secondsToHms(item.offsetSec);
+    updateTimerDisplays();
   }
 }
 
@@ -441,7 +488,7 @@ function updatePeriodicInterval(id, valStr) {
   }
 }
 
-// Delete Confirmation Modal
+// Delete Confirmation
 let deleteTarget = null;
 function promptDelete(id, category, name) {
   deleteTarget = { id, category };
@@ -463,12 +510,12 @@ function confirmDelete() {
   renderCards();
 }
 
-// Direct Big Plus Custom Creation
+// Creation
 function addCustomPeriodicFromCard() {
   state.periodic.push({
     id: 'custom_' + Date.now(),
     name: 'New Custom Event',
-    type: 900, // 15 mins default
+    type: 900,
     offsetSec: 0,
     mode: 'off',
     soundId: 'chime',
@@ -483,7 +530,7 @@ function addCustomCountdownFromCard() {
   state.countdowns.push({
     id: 'custom_' + Date.now(),
     name: 'New Custom Countdown',
-    totalSec: 3600, // 1 hour default
+    totalSec: 3600,
     remainingSec: 3600,
     lastEdit: Date.now(),
     isPaused: true,
@@ -495,7 +542,7 @@ function addCustomCountdownFromCard() {
   renderCards();
 }
 
-// Render UI Cards
+// Render DOM Cards
 function renderCards() {
   const pContainer = document.getElementById('periodic-container');
   pContainer.innerHTML = '';
@@ -544,7 +591,6 @@ function renderCards() {
     pContainer.appendChild(card);
   });
 
-  // Big Plus Card for Periodic Section
   const pCreateCard = document.createElement('div');
   pCreateCard.className = 'card create-card';
   pCreateCard.onclick = addCustomPeriodicFromCard;
@@ -599,7 +645,6 @@ function renderCards() {
     cContainer.appendChild(card);
   });
 
-  // Big Plus Card for Countdown Section
   const cCreateCard = document.createElement('div');
   cCreateCard.className = 'card create-card';
   cCreateCard.onclick = addCustomCountdownFromCard;
@@ -687,25 +732,37 @@ function editCountdown(id, valStr) {
   updateTimerDisplays();
 }
 
-// Timer Tick Engine
+// 1-Second Timer Tick Engine
 function updateTimerDisplays() {
   const now = Date.now();
 
+  // Periodic Reminders Process
   state.periodic.forEach(item => {
     const el = document.getElementById(`display-${item.id}`);
     if (!el) return;
-    const nextTarget = getNextPeriodicTarget(item.type);
-    const alarmTime = nextTarget + (item.offsetSec * 1000);
-    const diff = alarmTime - now;
+
+    const { E, A, A_next } = getPeriodicTargetAndDiff(item, now);
+
+    // Trigger check
+    if (now >= A && item.lastTrigger < E) {
+      item.lastTrigger = E;
+      saveState();
+      triggerAlert(item, `Event Starting Now!`);
+    }
+
+    // Remaining time calculation
+    const diff = item.lastTrigger >= E ? A_next - now : A - now;
     el.textContent = formatTime(diff);
 
-    if (now >= alarmTime && item.lastTrigger < nextTarget - 1000) {
-      item.lastTrigger = nextTarget;
-      triggerAlert(item, `Event Alert!`);
-      saveState();
+    // Mute gray if OFF
+    if (item.mode === 'off') {
+      el.classList.add('off');
+    } else {
+      el.classList.remove('off');
     }
   });
 
+  // Countdown Reminders Process
   state.countdowns.forEach(item => {
     const el = document.getElementById(`display-${item.id}`);
     if (!el) return;
@@ -727,15 +784,22 @@ function updateTimerDisplays() {
 
     el.textContent = formatTime(rem * 1000);
     
-    if (rem === 0) {
-      el.classList.add('expired');
-    } else {
+    // Mode OFF turns display gray; 0 time turns display red
+    if (item.mode === 'off') {
+      el.classList.add('off');
       el.classList.remove('expired');
+    } else {
+      el.classList.remove('off');
+      if (rem === 0) {
+        el.classList.add('expired');
+      } else {
+        el.classList.remove('expired');
+      }
     }
   });
 }
 
-// Initial Run
+// Init
 checkOfflineCountdownsOnLoad();
 renderCards();
 renderLogs();
