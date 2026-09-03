@@ -319,17 +319,19 @@ function triggerAlert(timer, title) {
 const defaultPeriodic = [
   { id: 'p_weather', name: 'Weather Change', type: '15m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
   { id: 'p_raid', name: 'KOH', type: '30m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
-  { id: 'p_market', name: 'Black Market', type: '1h', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
-  { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: -120, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
+  { id: 'p_black_market', name: 'Black Market', type: '1h', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
   { id: 'p_admin', name: 'Update (Admin Abuse)', type: 'sat_18_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
-  { id: 'p_clan', name: 'Clan Quest Refresh', type: 'mon_00_gmt', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_clan_quest', name: 'Clan Quest Refresh', type: 'mon_00_gmt', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_shop', name: 'Shop Refresh', type: '3m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+  { id: 'p_shop_rich', name: 'Shop Refresh (with businessman)', type: '2m45s', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
 ];
 
 const defaultCountdowns = [
   { id: 'c_daily', name: 'Daily Reward', totalSec: 86400, remainingSec: 86400, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
-  { id: 'c_craft36', name: 'Crafting 36h', totalSec: 129600, remainingSec: 129600, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
-  { id: 'c_craft24', name: 'Crafting 24h', totalSec: 86400, remainingSec: 86400, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
-  { id: 'c_craft12', name: 'Crafting 12h', totalSec: 43200, remainingSec: 43200, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft36', name: 'Crafting 36h', totalSec: 129600*0.9, remainingSec: 129600*0.9, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft24', name: 'Crafting 24h', totalSec: 86400*0.9, remainingSec: 86400*0.9, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
+  { id: 'c_craft12', name: 'Crafting 12h', totalSec: 43200*0.9, remainingSec: 43200*0.9, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
 ];
 
 let state = {
@@ -343,6 +345,8 @@ function saveState() {
 }
 
 function getIntervalText(type) {
+  if (type === '3m') return 'Interval: Every 3m';
+  if (type === '2m45s') return 'Interval: Every 2m 45s';
   if (type === '15m') return 'Interval: Every 15m';
   if (type === '30m') return 'Interval: Every 30m';
   if (type === '1h') return 'Interval: Every 1h';
@@ -356,6 +360,9 @@ function getIntervalText(type) {
 
 // Precise Periodic Math Engine
 function getIntervalMs(type) {
+  if (type === '2m45s') return 2 * 60 * 1000 + 45 * 1000;
+  if (type === '3m') return 3 * 60 * 1000;
+  if (type === '15m') return 15 * 60 * 1000;
   if (type === '15m') return 15 * 60 * 1000;
   if (type === '30m') return 30 * 60 * 1000;
   if (type === '1h') return 60 * 60 * 1000;
@@ -407,6 +414,7 @@ function getNextCalendarBoundary(type, currentBoundaryMs) {
     while (d.getUTCDay() !== 1 || d.getTime() <= currentBoundaryMs) {
       d.setUTCDate(d.getUTCDate() + 1);
     }
+    return d.getTime();
   }
   return currentBoundaryMs + 86400000;
 }
