@@ -226,8 +226,9 @@ document.getElementById('masterVolume').value = masterVolume;
 document.getElementById('volVal').textContent = Math.round(masterVolume * 100) + '%';
 
 function setMasterVolume(val) {
-  masterVolume = parseFloat(val);
-  document.getElementById('volVal').textContent = Math.round(masterVolume * 100) + '%';
+  masterVolume = parseFloat(val)**2;
+
+  document.getElementById('volVal').textContent = Math.round(parseFloat(val) * 100) + '%';
   localStorage.setItem('g_volume', masterVolume);
 }
 
