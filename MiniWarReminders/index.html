@@ -153,6 +153,9 @@
   <div class="section-title">Fixed Periodic Events</div>
   <div class="grid" id="periodic-container"></div>
 
+  <div class="section-title">Manual Start Periodic</div>
+  <div class="grid" id="manual-periodic-container"></div>
+
   <div class="section-title">Countdown & Craft Timers</div>
   <div class="grid" id="countdown-container"></div>
 
@@ -324,8 +327,12 @@ const defaultPeriodic = [
   { id: 'p_quest', name: 'Quest Refresh', type: 'daily_00_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
   { id: 'p_admin', name: 'Update (Admin Abuse)', type: 'sat_18_gmt', offsetSec: 0, mode: 'off', soundId: 'alarm', lastTrigger: 0 },
   { id: 'p_clan_quest', name: 'Clan Quest Refresh', type: 'mon_00_gmt', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
-  { id: 'p_prices', name: 'Market Price', type: '3m', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
-  { id: 'p_prices_rich', name: 'Market Price Refresh (with businessman)', type: '2m45s', offsetSec: 0, mode: 'off', soundId: 'chime', lastTrigger: 0 },
+];
+
+const defaultManualPeriodic = [
+  { id: 'mp_prices', name: 'Market Price Refresh', type: '3m', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 },
+  { id: 'mp_prices_rich', name: 'Market Price Refresh (with businessman)', type: '2m45s', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 },
+  { id: 'mp_afk', name: 'Afk Reconnect', type: '19m', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 }
 ];
 
 const defaultCountdowns = [
@@ -335,19 +342,48 @@ const defaultCountdowns = [
   { id: 'c_craft12', name: 'Crafting 12h', totalSec: 43200*0.9, remainingSec: 43200*0.9, lastEdit: Date.now(), isPaused: true, mode: 'off', soundId: 'chime' },
 ];
 
-let state = {
-  periodic: JSON.parse(localStorage.getItem('g_periodic')) || defaultPeriodic,
-  countdowns: JSON.parse(localStorage.getItem('g_countdowns')) || defaultCountdowns
-};
+function loadCategoryState(storageKey, defaultList) {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if (!saved) return defaultList.map(item => ({ ...item }));
+
+  // Keep custom items, and keep default items only if their ID is in current defaultList
+  const validSaved = saved.filter(item => {
+    if (item.isCustom) return true;
+    return defaultList.some(def => def.id === item.id);
+  });
+
+  // Add any missing default items from defaultList
+  defaultList.forEach(def => {
+    if (!validSaved.some(item => item.id === def.id)) {
+      validSaved.push({ ...def });
+    }
+  });
+
+  return validSaved;
+}
+
+function loadState() {
+  return {
+    periodic: loadCategoryState('g_periodic', defaultPeriodic),
+    manualPeriodic: loadCategoryState('g_manual_periodic', defaultManualPeriodic),
+    countdowns: loadCategoryState('g_countdowns', defaultCountdowns)
+  };
+}
+
+let state = loadState();
 
 function saveState() {
   localStorage.setItem('g_periodic', JSON.stringify(state.periodic));
+  localStorage.setItem('g_manual_periodic', JSON.stringify(state.manualPeriodic));
   localStorage.setItem('g_countdowns', JSON.stringify(state.countdowns));
 }
+
+saveState();
 
 function getIntervalText(type) {
   if (type === '3m') return 'Interval: Every 3m';
   if (type === '2m45s') return 'Interval: Every 2m 45s';
+  if (type === '19m') return 'Interval: Every 19m';
   if (type === '15m') return 'Interval: Every 15m';
   if (type === '30m') return 'Interval: Every 30m';
   if (type === '1h') return 'Interval: Every 1h';
@@ -361,9 +397,9 @@ function getIntervalText(type) {
 
 // Precise Periodic Math Engine
 function getIntervalMs(type) {
-  if (type === '2m45s') return 2 * 60 * 1000 + 45 * 1000;
+  if (type === '2m45s') return (2 * 60 + 45) * 1000;
   if (type === '3m') return 3 * 60 * 1000;
-  if (type === '15m') return 15 * 60 * 1000;
+  if (type === '19m') return 19 * 60 * 1000;
   if (type === '15m') return 15 * 60 * 1000;
   if (type === '30m') return 30 * 60 * 1000;
   if (type === '1h') return 60 * 60 * 1000;
@@ -509,6 +545,19 @@ function setMode(id, category, mode) {
 
 function applyModeChange(item, id, category, mode) {
   item.mode = mode;
+  if (category === 'manualPeriodic') {
+    if (mode === 'off') {
+      item.enabled = false;
+      item.startTime = null;
+      item.lastCycle = 0;
+    } else {
+      if (!item.enabled) {
+        item.enabled = true;
+        item.startTime = Date.now();
+        item.lastCycle = 0;
+      }
+    }
+  }
   saveState();
   const group = document.getElementById(`mode-group-${id}`);
   if (group) {
@@ -517,6 +566,10 @@ function applyModeChange(item, id, category, mode) {
       btn.classList.toggle('active', isTarget);
       btn.classList.toggle('mode-off', isTarget && mode === 'off');
     });
+  }
+  const toggleBtn = document.getElementById(`btn-toggle-${id}`);
+  if (toggleBtn && category === 'manualPeriodic') {
+    toggleBtn.textContent = item.enabled ? 'Disable & Reset' : 'Enable & Start';
   }
   updateTimerDisplays();
 }
@@ -552,7 +605,7 @@ function updatePeriodicInterval(id, valStr) {
 
   let parsed = parseTimeToSeconds(valStr);
   if (parsed === null || parsed <= 0) {
-    parsed = 900; // 15 minutes default
+    parsed = 900;
   }
 
   item.type = parsed;
@@ -562,13 +615,70 @@ function updatePeriodicInterval(id, valStr) {
   updateTimerDisplays();
 }
 
+function updateManualPeriodicOffset(id, valStr) {
+  const item = state.manualPeriodic.find(x => x.id === id);
+  if (!item) return;
+
+  let parsed = parseTimeToSeconds(valStr);
+  if (parsed === null) {
+    const defItem = defaultManualPeriodic.find(d => d.id === id);
+    parsed = defItem ? defItem.offsetSec : 0;
+  }
+
+  item.offsetSec = parsed;
+  saveState();
+  const input = document.getElementById(`input-offset-${id}`);
+  if (input) input.value = secondsToHms(item.offsetSec);
+  updateTimerDisplays();
+}
+
+function updateManualPeriodicInterval(id, valStr) {
+  const item = state.manualPeriodic.find(x => x.id === id);
+  if (!item) return;
+
+  let parsed = parseTimeToSeconds(valStr);
+  if (parsed === null || parsed <= 0) {
+    parsed = 900;
+  }
+
+  item.type = parsed;
+  saveState();
+  const input = document.getElementById(`input-interval-${id}`);
+  if (input) input.value = secondsToHms(item.type);
+  updateTimerDisplays();
+}
+
+function toggleManualPeriodic(id) {
+  const item = state.manualPeriodic.find(x => x.id === id);
+  if (!item) return;
+
+  if (item.enabled) {
+    item.enabled = false;
+    item.startTime = null;
+    item.lastCycle = 0;
+  } else {
+    item.enabled = true;
+    item.startTime = Date.now();
+    item.lastCycle = 0;
+    if (item.mode === 'off') {
+      setMode(id, 'manualPeriodic', 'sound');
+      return;
+    }
+  }
+  saveState();
+  const toggleBtn = document.getElementById(`btn-toggle-${id}`);
+  if (toggleBtn) {
+    toggleBtn.textContent = item.enabled ? 'Disable & Reset' : 'Enable & Start';
+  }
+  updateTimerDisplays();
+}
+
 function editCountdown(id, valStr) {
   const item = state.countdowns.find(x => x.id === id);
   if (!item) return;
 
   let parsed = parseTimeToSeconds(valStr);
   
-  // If deleted or cleared, revert to default timing for this reminder
   if (parsed === null) {
     const defItem = defaultCountdowns.find(d => d.id === id);
     parsed = defItem ? defItem.totalSec : (item.totalSec || 3600);
@@ -617,6 +727,23 @@ function addCustomPeriodicFromCard() {
     mode: 'off',
     soundId: 'chime',
     lastTrigger: 0,
+    isCustom: true
+  });
+  saveState();
+  renderCards();
+}
+
+function addCustomManualPeriodicFromCard() {
+  state.manualPeriodic.push({
+    id: 'custom_mp_' + Date.now(),
+    name: 'New Manual Periodic',
+    type: 900,
+    offsetSec: 0,
+    mode: 'off',
+    soundId: 'chime',
+    enabled: false,
+    startTime: null,
+    lastCycle: 0,
     isCustom: true
   });
   saveState();
@@ -697,6 +824,65 @@ function renderCards() {
   `;
   pContainer.appendChild(pCreateCard);
 
+  const mpContainer = document.getElementById('manual-periodic-container');
+  mpContainer.innerHTML = '';
+
+  state.manualPeriodic.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = `card-${item.id}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="icon-placeholder">🔄</div>
+        ${item.isCustom ? 
+          `<input type="text" class="title-input" value="${item.name.replace(/"/g, '&quot;')}" onchange="updateCustomTitle('${item.id}', 'manualPeriodic', this.value)">` : 
+          `<div class="card-title">${item.name}</div>`}
+        ${item.isCustom ? `<button class="btn-delete" title="Delete Reminder" onclick="promptDelete('${item.id}', 'manualPeriodic', '${item.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
+      </div>
+      ${!item.isCustom ? `<div class="interval-badge">${getIntervalText(item.type)}</div>` : `
+      <div class="field" style="width:100%;">
+        <label>Interval</label>
+        <input type="text" id="input-interval-${item.id}" value="${secondsToHms(item.type)}" onchange="updateManualPeriodicInterval('${item.id}', this.value)" placeholder="00h 15m 00s">
+      </div>`}
+      <div class="timer-display" id="display-${item.id}">--:--:--</div>
+      <div class="field">
+        <label>Alert Mode</label>
+        <div class="mode-group" id="mode-group-${item.id}">
+          <button class="mode-btn ${item.mode === 'off' ? 'active mode-off' : ''}" data-mode="off" onclick="setMode('${item.id}', 'manualPeriodic', 'off')">OFF</button>
+          <button class="mode-btn ${item.mode === 'sound' ? 'active' : ''}" data-mode="sound" onclick="setMode('${item.id}', 'manualPeriodic', 'sound')">SOUND</button>
+          <button class="mode-btn ${item.mode === 'push' ? 'active' : ''}" data-mode="push" onclick="setMode('${item.id}', 'manualPeriodic', 'push')">PUSH</button>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button id="btn-toggle-${item.id}" onclick="toggleManualPeriodic('${item.id}')">${item.enabled ? 'Disable & Reset' : 'Enable & Start'}</button>
+      </div>
+      <div class="controls">
+        <div class="field">
+          <label>Offset Time</label>
+          <input type="text" id="input-offset-${item.id}" value="${secondsToHms(item.offsetSec || 0)}" onchange="updateManualPeriodicOffset('${item.id}', this.value)" placeholder="00h 00m 00s">
+        </div>
+        <div class="field">
+          <label>Sound</label>
+          <select onchange="updateManualPeriodic('${item.id}', 'soundId', this.value)">
+            <option value="chime" ${item.soundId === 'chime' ? 'selected' : ''}>Chime</option>
+            <option value="alarm" ${item.soundId === 'alarm' ? 'selected' : ''}>Alarm</option>
+            <option value="pulse" ${item.soundId === 'pulse' ? 'selected' : ''}>Pulse</option>
+          </select>
+        </div>
+      </div>
+    `;
+    mpContainer.appendChild(card);
+  });
+
+  const mpCreateCard = document.createElement('div');
+  mpCreateCard.className = 'card create-card';
+  mpCreateCard.onclick = addCustomManualPeriodicFromCard;
+  mpCreateCard.innerHTML = `
+    <div class="plus-icon">+</div>
+    <div class="create-label">Add Custom Manual Periodic</div>
+  `;
+  mpContainer.appendChild(mpCreateCard);
+
   const cContainer = document.getElementById('countdown-container');
   cContainer.innerHTML = '';
 
@@ -761,6 +947,12 @@ function updatePeriodic(id, prop, val) {
   saveState();
 }
 
+function updateManualPeriodic(id, prop, val) {
+  const item = state.manualPeriodic.find(x => x.id === id);
+  if (item) item[prop] = val;
+  saveState();
+}
+
 function updateCountdown(id, prop, val) {
   const item = state.countdowns.find(x => x.id === id);
   if (item) item[prop] = val;
@@ -803,7 +995,6 @@ function resetCountdown(id) {
   const item = state.countdowns.find(x => x.id === id);
   if (!item) return;
 
-  // Reset to initial default total duration
   const defItem = defaultCountdowns.find(d => d.id === id);
   item.totalSec = defItem ? defItem.totalSec : (item.totalSec || 3600);
   item.remainingSec = item.totalSec;
@@ -841,11 +1032,50 @@ function updateTimerDisplays() {
     const diff = item.lastTrigger >= E ? A_next - now : A - now;
     el.textContent = formatTime(diff);
 
-    // Apply entire card color filter tinting
     if (item.mode === 'off') {
       card.classList.add('off');
     } else {
       card.classList.remove('off');
+    }
+  });
+
+  // Manual Start Periodic Reminders Process
+  state.manualPeriodic.forEach(item => {
+    const el = document.getElementById(`display-${item.id}`);
+    const card = document.getElementById(`card-${item.id}`);
+    if (!el || !card) return;
+
+    const I = getIntervalMs(item.type);
+    const offsetMs = (item.offsetSec || 0) * 1000;
+
+    if (!item.enabled || !item.startTime) {
+      el.textContent = formatTime(I);
+      card.classList.add('off');
+    } else {
+      if (item.mode === 'off') {
+        card.classList.add('off');
+      } else {
+        card.classList.remove('off');
+      }
+
+      const effectiveStart = item.startTime - offsetMs;
+      const elapsed = now - effectiveStart;
+
+      if (elapsed < 0) {
+        el.textContent = formatTime(-elapsed);
+      } else {
+        const completedCycles = Math.floor(elapsed / I);
+        const nextTriggerTime = effectiveStart + (completedCycles + 1) * I;
+        const diff = nextTriggerTime - now;
+
+        if (completedCycles > (item.lastCycle || 0)) {
+          item.lastCycle = completedCycles;
+          saveState();
+          triggerAlert(item, 'Event Starting Now!');
+        }
+
+        el.textContent = formatTime(diff);
+      }
     }
   });
 
@@ -873,7 +1103,6 @@ function updateTimerDisplays() {
 
     el.textContent = formatTime(rem * 1000);
     
-    // Apply card styling states
     if (item.mode === 'off') {
       card.classList.add('off');
       card.classList.remove('expired');
