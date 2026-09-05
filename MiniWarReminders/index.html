@@ -332,7 +332,7 @@ const defaultPeriodic = [
 const defaultManualPeriodic = [
   { id: 'mp_prices', name: 'Market Price Refresh', type: '3m', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 },
   { id: 'mp_prices_rich', name: 'Market Price Refresh (with businessman)', type: '2m45s', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 },
-  { id: 'mp_afk', name: 'Afk Reconnect', type: '19m', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 }
+  { id: 'mp_afk', name: 'Afk Reconnect', type: '15m', offsetSec: 0, mode: 'off', soundId: 'chime', enabled: false, startTime: null, lastCycle: 0 }
 ];
 
 const defaultCountdowns = [
@@ -383,7 +383,6 @@ saveState();
 function getIntervalText(type) {
   if (type === '3m') return 'Interval: Every 3m';
   if (type === '2m45s') return 'Interval: Every 2m 45s';
-  if (type === '19m') return 'Interval: Every 19m';
   if (type === '15m') return 'Interval: Every 15m';
   if (type === '30m') return 'Interval: Every 30m';
   if (type === '1h') return 'Interval: Every 1h';
@@ -399,7 +398,6 @@ function getIntervalText(type) {
 function getIntervalMs(type) {
   if (type === '2m45s') return (2 * 60 + 45) * 1000;
   if (type === '3m') return 3 * 60 * 1000;
-  if (type === '19m') return 19 * 60 * 1000;
   if (type === '15m') return 15 * 60 * 1000;
   if (type === '30m') return 30 * 60 * 1000;
   if (type === '1h') return 60 * 60 * 1000;
