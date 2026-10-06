@@ -151,6 +151,7 @@ this._onPlPanelMouseUp = this._onPlPanelMouseUp.bind(this);
                     <div id="hideModeControls" style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 8px;">
                         <button id="btnLockPos" style="padding: 6px 12px; font-size: 13px; background: #555; border: 1px solid #888; border-radius: 4px; color: #fff; cursor: pointer;">🔓 Unlocked [E]</button>
                         <button id="btnPaintMode" style="padding: 6px 12px; font-size: 13px; background: #555; border: 1px solid #888; border-radius: 4px; color: #fff; cursor: pointer;">🖌️ Paint Mode [F]</button>
+                        <button id="btnToggleMySquare" style="padding: 6px 12px; font-size: 13px; background: #555; border: 1px solid #888; border-radius: 4px; color: #fff; cursor: pointer;">👁️ Hide Square [R]</button>
                     </div>
 
                     <div id="postGameControls" style="display: none; margin-top: 15px; gap: 15px; justify-content: center;"></div>
@@ -641,6 +642,10 @@ this._onPlPanelMouseUp = this._onPlPanelMouseUp.bind(this);
         this.playerProgress = {};
         if (this.playerListPanel) this.playerListPanel.style.display = 'none';
         if (this.playerListTooltip) this.playerListTooltip.style.display = 'none';
+        this._toggleMySquareVisibility(false);
+        if (this.centerSquare) {    
+            this.centerSquare.style.display = 'block';
+        }
     }
 
     // =====================================================
@@ -1348,6 +1353,8 @@ this._onPlPanelMouseUp = this._onPlPanelMouseUp.bind(this);
             this._toggleLock();
         } else if (key === 'f' && this.currentPhase === 'hide') {
             this._togglePaintMode();
+        } else if (key === 'r' && this.currentPhase === 'hide') {
+            this._toggleMySquareVisibility();
         }
     }
 
@@ -1684,5 +1691,25 @@ this._onPlPanelMouseUp = this._onPlPanelMouseUp.bind(this);
             this.hudPlayerList.appendChild(li);
         });
     }
-    
+    _toggleMySquareVisibility(force = null) {
+    if (force !== null) {
+        this.isMySquareHidden = force;
+    } else {
+        this.isMySquareHidden = !this.isMySquareHidden;
+    }
+
+    if (this.centerSquare) {
+        this.centerSquare.style.display = this.isMySquareHidden ? 'none' : 'block';
+    }
+
+    if (this.btnToggleMySquare) {
+        if (this.isMySquareHidden) {
+            this.btnToggleMySquare.innerText = '👁️ Show Square [R]';
+            this.btnToggleMySquare.style.background = 'var(--accent)';
+        } else {
+            this.btnToggleMySquare.innerText = '👁️ Hide Square [R]';
+            this.btnToggleMySquare.style.background = '#555';
+        }
+    }
+}
 }
