@@ -1,0 +1,151 @@
+:root {
+    --bg-color: #1e1e24;
+    --panel-color: #2b2b36;
+    --text-color: #f8f8f2;
+    --accent: #ff6b6b;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+}
+
+#app-root {
+    width: 100%;
+    height: 100%;
+}
+
+#ui-container {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.screen {
+    background: var(--panel-color);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    pointer-events: auto;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 800px;
+    width: 90%;
+}
+
+.screen.active {
+    display: flex;
+}
+
+.pointer-events-none { pointer-events: none !important; }
+
+h1, h2, h3 { margin: 0 0 10px 0; }
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+button:hover { background: #ff5252; }
+button:disabled { background: #555; cursor: not-allowed; }
+
+input[type="text"], input[type="number"], select {
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: white;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.join-box { display: flex; gap: 10px; }
+
+.lobby-layout { display: flex; gap: 20px; flex-wrap: wrap; }
+.settings-panel, .customization-panel {
+    flex: 1; min-width: 250px;
+    background: rgba(0,0,0,0.2);
+    padding: 15px; border-radius: 8px;
+}
+
+.settings-panel label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.settings-panel label input, .settings-panel label select { width: 120px; }
+
+#paint-canvas {
+    background: white;
+    border: 2px solid #555;
+    cursor: crosshair;
+    width: 128px; height: 128px; /* Visual scale, actual resolution is 64x64 */
+    image-rendering: pixelated;
+}
+
+.tools { display: flex; gap: 10px; align-items: center; margin-top: 10px;}
+
+#game-canvas {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: #000;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    z-index: 1;
+}
+
+#game-hud {
+    position: absolute;
+    top: 20px;
+    background: transparent;
+    box-shadow: none;
+    text-align: center;
+    text-shadow: 2px 2px 4px #000;
+}
+
+/* --- Countdown Overlay --- */
+.countdown-overlay {
+    position: fixed;
+    top: 0%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    flex-direction: column;
+    text-align: center;
+}
+
+.countdown-content h2 {
+    font-size: 2em;
+    color: #ccc;
+    margin: 10%;
+}
+
+.countdown-content h1 {
+    font-size: 10em;
+    color: var(--accent);
+    margin: 10%;
+}
