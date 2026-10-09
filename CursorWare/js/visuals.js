@@ -67,6 +67,7 @@ window.Visuals = {
     },
 
     executeEmptyClickDown: function(id) {
+        CursorManager.setState(id, 'CLICKING');
         const el = document.getElementById(id === GameState.myId ? 'sprite-local' : 'sprite-' + id);
         this.playAnim(el, 'anim-click-down');
         this.setHandShape(id, Assets.PATH_SINGLE_POINTER);
@@ -74,9 +75,9 @@ window.Visuals = {
     },
 
     executeEmptyClickUp: function(id) {
+        CursorManager.setIdle(id);
         const el = document.getElementById(id === GameState.myId ? 'sprite-local' : 'sprite-' + id);
         this.playAnim(el, 'anim-click-up');
-        this.setHandShape(id, Assets.PATH_POINTER);
         AudioEngine.playClickSound(false);
     },
 
@@ -98,11 +99,21 @@ window.Visuals = {
         this.playAnim(slapperEl, 'anim-slap-strike');
         this.playAnim(slappedEl, 'anim-slap-receive');
         
+        const sState = CursorManager.setState(slapperId, 'SLAPPING');
         this.setHandShape(slapperId, Assets.PATH_SLAP_STRIKE);
-        setTimeout(() => this.setHandShape(slapperId, Assets.PATH_POINTER), 300);
+        sState.timer = setTimeout(() => {
+            if (CursorManager.getState(slapperId) === 'SLAPPING') CursorManager.setIdle(slapperId);
+        }, 300);
         
-        setTimeout(() => this.setHandShape(slappedId, Assets.PATH_JAZZ_HAND), 150);
-        setTimeout(() => this.setHandShape(slappedId, Assets.PATH_POINTER), 400);
+        const tState = CursorManager.setState(slappedId, 'SLAPPED');
+        tState.sequenceTimer = setTimeout(() => {
+            if (CursorManager.getState(slappedId) === 'SLAPPED') {
+                this.setHandShape(slappedId, Assets.PATH_JAZZ_HAND);
+                tState.timer = setTimeout(() => {
+                    if (CursorManager.getState(slappedId) === 'SLAPPED') CursorManager.setIdle(slappedId);
+                }, 250);
+            }
+        }, 150);
         
         AudioEngine.playSlapSound();
 
@@ -134,7 +145,7 @@ window.Visuals = {
 
         textEl.style.left = pX + 'px'; textEl.style.top = pY + 'px';
         textEl.style.zIndex = 10000;
-        document.body.appendChild(textEl);
+        document.getElementById('cursor-container').appendChild(textEl);
         setTimeout(() => textEl.remove(), 800);
     },
 
@@ -162,11 +173,16 @@ window.Visuals = {
         this.playAnim(spriteInit, 'anim-hf-initiator');
         this.playAnim(spriteTarg, 'anim-hf-target');
         
+        const sInit = CursorManager.setState(initiatorId, 'HIGHFIVING');
         this.setHandShape(initiatorId, Assets.PATH_HIGHFIVE);
+        sInit.timer = setTimeout(() => {
+            if (CursorManager.getState(initiatorId) === 'HIGHFIVING') CursorManager.setIdle(initiatorId);
+        }, 300);
+
+        const sTarg = CursorManager.setState(targetId, 'HIGHFIVING');
         this.setHandShape(targetId, Assets.PATH_HIGHFIVE);
-        setTimeout(() => {
-            this.setHandShape(initiatorId, Assets.PATH_POINTER);
-            this.setHandShape(targetId, Assets.PATH_POINTER);
+        sTarg.timer = setTimeout(() => {
+            if (CursorManager.getState(targetId) === 'HIGHFIVING') CursorManager.setIdle(targetId);
         }, 300);
 
         AudioEngine.playHighFiveSound(grade.name.toLowerCase(), comboInfo.count);
@@ -208,7 +224,7 @@ window.Visuals = {
                 </div>
             `;
         }
-        document.body.appendChild(scoreEl);
+        document.getElementById('cursor-container').appendChild(scoreEl);
         setTimeout(() => scoreEl.remove(), 800);
     }
 };

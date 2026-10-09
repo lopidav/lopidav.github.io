@@ -21,8 +21,8 @@ function renderLoop() {
     
     for (let dId in GameState.activeDrags) {
         if (now - GameState.activeDrags[dId].time > 150) {
-            Visuals.setHandShape(dId, Assets.PATH_POINTER);
-            Visuals.setHandShape(GameState.activeDrags[dId].target, Assets.PATH_POINTER);
+            CursorManager.setIdle(dId);
+            CursorManager.setIdle(GameState.activeDrags[dId].target);
             delete GameState.activeDrags[dId];
         }
     }
@@ -94,8 +94,8 @@ function renderLoop() {
 function networkTick() {
     if (!GameState.isClickedIn || !GameState.isInGame) return;
 
-    const xNorm = GameState.localPos.x / window.innerWidth;
-    const yNorm = GameState.localPos.y / window.innerHeight;
+    const xNorm = GameState.localPos.x / GameState.gameWidth;
+    const yNorm = GameState.localPos.y / GameState.gameHeight;
 
     if (GameState.isDragging && GameState.interactingPeer) {
         Visuals.promoteZ(GameState.myId, GameState.interactingPeer);
@@ -206,33 +206,36 @@ window.addEventListener('mousemove', (e) => {
             return; // Block movement updates
         }
 
-        let newX = Math.max(0, Math.min(window.innerWidth - 32, GameState.localPos.x + e.movementX));
-        let newY = Math.max(0, Math.min(window.innerHeight - 32, GameState.localPos.y + e.movementY));
+        let newX = Math.max(4, Math.min(GameState.gameWidth - 12, GameState.localPos.x + e.movementX));
+        let newY = Math.max(0, Math.min(GameState.gameHeight - 18, GameState.localPos.y + e.movementY));
         
         const obs = document.getElementById('obstacle');
         if (obs) {
-            const rect = obs.getBoundingClientRect();
-            const cSize = 32;
-            const isColliding = (x, y) => x < rect.right && x + cSize > rect.left && y < rect.bottom && y + cSize > rect.top;
+            const rect = {
+                left: obs.offsetLeft - obs.offsetWidth / 2,
+                top: obs.offsetTop - obs.offsetHeight / 2,
+                right: obs.offsetLeft + obs.offsetWidth / 2,
+                bottom: obs.offsetTop + obs.offsetHeight / 2
+            };
             
-            if (isColliding(newX, newY)) {
+            if (CursorManager.isColliding(newX, newY, rect)) {
                 let slideX = newX;
                 let slideY = newY;
                 
-                if (isColliding(newX, GameState.localPos.y)) {
-                    slideX = e.movementX > 0 ? rect.left - cSize : (e.movementX < 0 ? rect.right : GameState.localPos.x);
+                if (CursorManager.isColliding(newX, GameState.localPos.y, rect)) {
+                    slideX = e.movementX > 0 ? rect.left - 12 : (e.movementX < 0 ? rect.right + 4 : GameState.localPos.x);
                 }
-                if (isColliding(GameState.localPos.x, newY)) {
-                    slideY = e.movementY > 0 ? rect.top - cSize : (e.movementY < 0 ? rect.bottom : GameState.localPos.y);
+                if (CursorManager.isColliding(GameState.localPos.x, newY, rect)) {
+                    slideY = e.movementY > 0 ? rect.top - 18 : (e.movementY < 0 ? rect.bottom : GameState.localPos.y);
                 }
                 
-                if (!isColliding(slideX, slideY)) {
+                if (!CursorManager.isColliding(slideX, slideY, rect)) {
                     newX = slideX;
                     newY = slideY;
                 } else {
-                    if (!isColliding(slideX, GameState.localPos.y)) {
+                    if (!CursorManager.isColliding(slideX, GameState.localPos.y, rect)) {
                         newX = slideX; newY = GameState.localPos.y;
-                    } else if (!isColliding(GameState.localPos.x, slideY)) {
+                    } else if (!CursorManager.isColliding(GameState.localPos.x, slideY, rect)) {
                         newX = GameState.localPos.x; newY = slideY;
                     } else {
                         newX = GameState.localPos.x; newY = GameState.localPos.y;
@@ -246,7 +249,9 @@ window.addEventListener('mousemove', (e) => {
 
         if (GameState.interactingPeer && !GameState.isDragging && Math.hypot(GameState.localPos.x - GameState.dragStartPos.x, GameState.localPos.y - GameState.dragStartPos.y) > 10) {
             GameState.isDragging = true;
+            CursorManager.setState(GameState.myId, 'DRAGGING');
             Visuals.setHandShape(GameState.myId, Assets.PATH_GRAB);
+            CursorManager.setState(GameState.interactingPeer, 'DRAGGED');
             Visuals.setHandShape(GameState.interactingPeer, Assets.PATH_SQUEEZED);
         }
     }
@@ -279,19 +284,23 @@ window.addEventListener('mouseup', (e) => {
         }
     }
     if (GameState.isDragging) {
-        Visuals.setHandShape(GameState.myId, Assets.PATH_POINTER); 
-        Visuals.setHandShape(targetId, Assets.PATH_POINTER);
+        CursorManager.setIdle(GameState.myId);
+        CursorManager.setIdle(targetId);
         
         let dropX = GameState.localPos.x + 30;
         let dropY = GameState.localPos.y - 30;
-        dropX = Math.max(0, Math.min(window.innerWidth - 32, dropX));
-        dropY = Math.max(0, Math.min(window.innerHeight - 32, dropY));
+        dropX = Math.max(4, Math.min(GameState.gameWidth - 12, dropX));
+        dropY = Math.max(0, Math.min(GameState.gameHeight - 18, dropY));
         
         const obs = document.getElementById('obstacle');
         if (obs) {
-            const rect = obs.getBoundingClientRect();
-            const cSize = 32;
-            if (dropX < rect.right && dropX + cSize > rect.left && dropY < rect.bottom && dropY + cSize > rect.top) {
+            const rect = {
+                left: obs.offsetLeft - obs.offsetWidth / 2,
+                top: obs.offsetTop - obs.offsetHeight / 2,
+                right: obs.offsetLeft + obs.offsetWidth / 2,
+                bottom: obs.offsetTop + obs.offsetHeight / 2
+            };
+            if (CursorManager.isColliding(dropX, dropY, rect)) {
                 dropX = GameState.localPos.x;
                 dropY = GameState.localPos.y;
             }
@@ -304,8 +313,8 @@ window.addEventListener('mouseup', (e) => {
         
         Network.broadcastData({ 
             t: 'event', type: 'drop', dragger: GameState.myId, dragged: targetId,
-            x: parseFloat((dropX / window.innerWidth).toFixed(5)), 
-            y: parseFloat((dropY / window.innerHeight).toFixed(5)) 
+            x: parseFloat((dropX / GameState.gameWidth).toFixed(5)), 
+            y: parseFloat((dropY / GameState.gameHeight).toFixed(5)) 
         });
         delete GameState.activeDrags[GameState.myId];
     }
@@ -356,19 +365,23 @@ document.addEventListener('pointerlockchange', () => {
             document.getElementById('game-ui').classList.remove('hidden');
         }
         if (GameState.isDragging && GameState.interactingPeer) {
-            Visuals.setHandShape(GameState.myId, Assets.PATH_POINTER); 
-            Visuals.setHandShape(GameState.interactingPeer, Assets.PATH_POINTER);
+            CursorManager.setIdle(GameState.myId);
+            CursorManager.setIdle(GameState.interactingPeer);
             
             let dropX = GameState.localPos.x + 30;
             let dropY = GameState.localPos.y - 30;
-            dropX = Math.max(0, Math.min(window.innerWidth - 32, dropX));
-            dropY = Math.max(0, Math.min(window.innerHeight - 32, dropY));
+            dropX = Math.max(4, Math.min(GameState.gameWidth - 12, dropX));
+            dropY = Math.max(0, Math.min(GameState.gameHeight - 18, dropY));
             
             const obs = document.getElementById('obstacle');
             if (obs) {
-                const rect = obs.getBoundingClientRect();
-                const cSize = 32;
-                if (dropX < rect.right && dropX + cSize > rect.left && dropY < rect.bottom && dropY + cSize > rect.top) {
+                const rect = {
+                    left: obs.offsetLeft - obs.offsetWidth / 2,
+                    top: obs.offsetTop - obs.offsetHeight / 2,
+                    right: obs.offsetLeft + obs.offsetWidth / 2,
+                    bottom: obs.offsetTop + obs.offsetHeight / 2
+                };
+                if (CursorManager.isColliding(dropX, dropY, rect)) {
                     dropX = GameState.localPos.x;
                     dropY = GameState.localPos.y;
                 }
@@ -381,8 +394,8 @@ document.addEventListener('pointerlockchange', () => {
             
             Network.broadcastData({ 
                 t: 'event', type: 'drop', dragger: GameState.myId, dragged: GameState.interactingPeer,
-                x: parseFloat((dropX / window.innerWidth).toFixed(5)),
-                y: parseFloat((dropY / window.innerHeight).toFixed(5))
+                x: parseFloat((dropX / GameState.gameWidth).toFixed(5)),
+                y: parseFloat((dropY / GameState.gameHeight).toFixed(5))
             });
             delete GameState.activeDrags[GameState.myId];
             GameState.isDragging = false;
@@ -391,15 +404,31 @@ document.addEventListener('pointerlockchange', () => {
     }
 });
 
-window.addEventListener('resize', () => {
-    for (let id in GameState.peers) {
-        const p = GameState.peers[id];
-        const xNorm = p.targetX / (window.innerWidth || 1);
-        const yNorm = p.targetY / (window.innerHeight || 1);
-        p.targetX = xNorm * window.innerWidth;
-        p.targetY = yNorm * window.innerHeight;
+window.updateGameDims = function() {
+    const area = document.getElementById('game-area');
+    if (!area) return;
+    const newW = area.clientWidth;
+    const newH = area.clientHeight;
+    if (GameState.gameWidth && GameState.gameHeight) {
+        const scaleX = newW / GameState.gameWidth;
+        const scaleY = newH / GameState.gameHeight;
+        GameState.localPos.x *= scaleX;
+        GameState.localPos.y *= scaleY;
+        for (let id in GameState.peers) {
+            GameState.peers[id].targetX *= scaleX;
+            GameState.peers[id].targetY *= scaleY;
+            GameState.peers[id].renderX *= scaleX;
+            GameState.peers[id].renderY *= scaleY;
+        }
+    } else {
+        GameState.localPos.x = newW / 2;
+        GameState.localPos.y = newH / 2;
     }
-});
+    GameState.gameWidth = newW;
+    GameState.gameHeight = newH;
+};
+
+window.addEventListener('resize', window.updateGameDims);
 
 function initPeer(onReady) {
     document.getElementById('action-state').classList.add('hidden');
@@ -437,14 +466,28 @@ document.getElementById('btn-join').addEventListener('click', () => {
             Network.hostConnection.send({ 
                 t: 'c', 
                 id: GameState.myId, 
-                x: GameState.localPos.x / window.innerWidth, 
-                y: GameState.localPos.y / window.innerHeight 
+                x: GameState.localPos.x / GameState.gameWidth, 
+                y: GameState.localPos.y / GameState.gameHeight 
             });
         });
         Network.hostConnection.on('data', (data) => Network.handlePeerData(data, Network.hostConnection));
         Network.hostConnection.on('close', () => { alert("Host disconnected!"); location.reload(); });
         Network.hostConnection.on('error', () => { alert("Connection error!"); location.reload(); });
     });
+});
+
+window.setAspectRatio = function(ratio) {
+    GameState.aspectRatio = ratio;
+    document.getElementById('game-area').style.setProperty('--aspect-ratio', ratio);
+    const selectEl = document.getElementById('aspect-ratio-select');
+    if (selectEl) selectEl.value = ratio;
+    window.updateGameDims();
+};
+
+document.getElementById('aspect-ratio-select').addEventListener('change', (e) => {
+    const ratio = parseFloat(e.target.value);
+    window.setAspectRatio(ratio);
+    Network.broadcastData({ t: 'event', type: 'aspect_ratio', ratio: ratio });
 });
 
 document.getElementById('volume-slider').addEventListener('input', (e) => {
@@ -470,4 +513,8 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
         document.getElementById('icon-copy-link').classList.add('hidden'); document.getElementById('icon-check-link').classList.remove('hidden');
         setTimeout(() => { document.getElementById('icon-copy-link').classList.remove('hidden'); document.getElementById('icon-check-link').classList.add('hidden'); }, 2000);
     });
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    window.setAspectRatio(2);
 });

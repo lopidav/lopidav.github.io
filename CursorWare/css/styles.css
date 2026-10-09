@@ -1,4 +1,4 @@
-body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; cursor: crosshair; }
+body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: sans-serif; cursor: crosshair; display: flex; align-items: center; justify-content: center; }
 
 .cursor-entity {
     position: absolute;
@@ -117,3 +117,14 @@ body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; fon
 body.labels-visible .cursor-label { opacity: 1; }
 #lobby { transition: opacity 0.2s ease; }
 .hidden-fade { opacity: 0; pointer-events: none; }
+
+#game-area {
+    position: relative;
+    background-color: #0f172a;
+    width: 100vw;
+    height: calc(100vw / var(--aspect-ratio, 2));
+    max-height: 100vh;
+    max-width: calc(100vh * var(--aspect-ratio, 2));
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+}

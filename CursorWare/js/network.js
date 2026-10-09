@@ -16,12 +16,12 @@ window.Network = {
 
     updateRemoteCursor: function(id, x, y) {
         if (!GameState.peers[id]) {
-            GameState.peers[id] = { targetX: x*innerWidth, targetY: y*innerHeight, renderX: x*innerWidth, renderY: y*innerHeight, element: Visuals.createCursorElement(id), currentShape: Assets.PATH_POINTER };
+            GameState.peers[id] = { targetX: x*GameState.gameWidth, targetY: y*GameState.gameHeight, renderX: x*GameState.gameWidth, renderY: y*GameState.gameHeight, element: Visuals.createCursorElement(id), currentShape: Assets.PATH_POINTER };
             if (!GameState.baseZ[id]) GameState.baseZ[id] = 100;
             document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
         } else {
-            GameState.peers[id].targetX = x*innerWidth; 
-            GameState.peers[id].targetY = y*innerHeight;
+            GameState.peers[id].targetX = x*GameState.gameWidth; 
+            GameState.peers[id].targetY = y*GameState.gameHeight;
         }
     },
 
@@ -40,12 +40,12 @@ window.Network = {
         
         if (GameState.activeDrags[peerId]) {
             let draggedId = GameState.activeDrags[peerId].target;
-            Visuals.setHandShape(draggedId, Assets.PATH_POINTER);
+            CursorManager.setIdle(draggedId);
             delete GameState.activeDrags[peerId];
         }
         for (let draggerId in GameState.activeDrags) {
             if (GameState.activeDrags[draggerId].target === peerId) {
-                Visuals.setHandShape(draggerId, Assets.PATH_POINTER);
+                CursorManager.setIdle(draggerId);
                 delete GameState.activeDrags[draggerId];
                 if (draggerId === GameState.myId) {
                     GameState.isDragging = false;
@@ -63,13 +63,13 @@ window.Network = {
             if (GameState.isHost) {
                 let syncData = { t: 'sync_res', peers: {} };
                 syncData.peers[GameState.myId] = { 
-                    x: GameState.localPos.x / window.innerWidth, 
-                    y: GameState.localPos.y / window.innerHeight 
+                    x: GameState.localPos.x / GameState.gameWidth, 
+                    y: GameState.localPos.y / GameState.gameHeight 
                 };
                 for (let otherId in GameState.peers) {
                     syncData.peers[otherId] = { 
-                        x: GameState.peers[otherId].targetX / window.innerWidth, 
-                        y: GameState.peers[otherId].targetY / window.innerHeight 
+                        x: GameState.peers[otherId].targetX / GameState.gameWidth, 
+                        y: GameState.peers[otherId].targetY / GameState.gameHeight 
                     };
                 }
                 conn.send(syncData);
@@ -91,6 +91,9 @@ window.Network = {
                 clearTimeout(GameState.pendingHitTimeout); 
                 Visuals.executeHighFiveVisuals(data.from, GameState.myId, data.diff); 
             }
+            else if (data.type === 'aspect_ratio') {
+                if (window.setAspectRatio) window.setAspectRatio(data.ratio);
+            }
             else if (data.type === 'slap_execute' && data.to === GameState.myId) {
                 if (GameState.isDragging && GameState.interactingPeer) {
                     this.broadcastData({ t: 'event', type: 'drop', dragger: GameState.myId, dragged: GameState.interactingPeer });
@@ -100,31 +103,33 @@ window.Network = {
             }
             else if (data.type === 'drag') {
                 GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+                CursorManager.setState(data.dragger, 'DRAGGING');
                 Visuals.setHandShape(data.dragger, Assets.PATH_GRAB); 
+                CursorManager.setState(data.dragged, 'DRAGGED');
                 Visuals.setHandShape(data.dragged, Assets.PATH_SQUEEZED);
                 if (data.dragged === GameState.myId) { 
                     if (GameState.isDragging && GameState.interactingPeer) {
                         this.broadcastData({ t: 'event', type: 'drop', dragger: GameState.myId, dragged: GameState.interactingPeer });
                         GameState.isDragging = false; GameState.interactingPeer = null;
                     }
-                    GameState.localPos.x = data.x * window.innerWidth; 
-                    GameState.localPos.y = data.y * window.innerHeight; 
+                    GameState.localPos.x = data.x * GameState.gameWidth; 
+                    GameState.localPos.y = data.y * GameState.gameHeight; 
                 } else if (GameState.peers[data.dragged]) {
-                    GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
-                    GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                    GameState.peers[data.dragged].targetX = data.x * GameState.gameWidth;
+                    GameState.peers[data.dragged].targetY = data.y * GameState.gameHeight;
                 }
             }
             else if (data.type === 'drop') { 
-                Visuals.setHandShape(data.dragger, Assets.PATH_POINTER); 
-                Visuals.setHandShape(data.dragged, Assets.PATH_POINTER); 
+                CursorManager.setIdle(data.dragger);
+                CursorManager.setIdle(data.dragged);
                 delete GameState.activeDrags[data.dragger];
                 if (data.x !== undefined && data.y !== undefined) {
                     if (data.dragged === GameState.myId) {
-                        GameState.localPos.x = data.x * window.innerWidth;
-                        GameState.localPos.y = data.y * window.innerHeight;
+                        GameState.localPos.x = data.x * GameState.gameWidth;
+                        GameState.localPos.y = data.y * GameState.gameHeight;
                     } else if (GameState.peers[data.dragged]) {
-                        GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
-                        GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                        GameState.peers[data.dragged].targetX = data.x * GameState.gameWidth;
+                        GameState.peers[data.dragged].targetY = data.y * GameState.gameHeight;
                     }
                 }
             }

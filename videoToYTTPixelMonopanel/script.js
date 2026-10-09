@@ -1,5 +1,4 @@
-// Video to subtitles tool
-// 2 panels per frame
+
 $( document ).ready(function() {
   
 })
@@ -107,6 +106,7 @@ async function extractFramesFromVideo(videoSrc, fps=25) {
 }
 function constructFromErrays(arrArr, colorsArray,startTime) {
   // const output = document.getElementById("output");
+  arrArr = arrArr.slice(0,5);
   console.log("constucting from errays", arrArr.length);
   txtFileDownload(`<?xml version="1.0" encoding="utf-8"?>
 <timedtext format="3">
@@ -121,47 +121,44 @@ function constructFromErrays(arrArr, colorsArray,startTime) {
 <ws id="0" ju="2" pd="0" sd="0" />
 <ws id="1" ju="2" pd="4" sd="4" />
 
-<pen id="0" sz="100" fc="#000000" fo="0" bo="0"/>
-<pen id="1" sz="100" fc="#A0AAB4" fo="0" bo="0"/>
+<pen id="0" sz="100" fc="#000000" fo="0" bo="0" />
+<pen id="1" sz="100" fc="#A0AAB4" fo="0" bo="0" />
 ${
   colorsArray.map((x,i)=>
     `<pen id="${i+2}" sz="1" fc="${x}" fo="255" bo="0"/>`
   ).join``
 }
 </head>
-<body>${
+<body>
 
-arrArr.map((arr,frameN)=>
-  
-  
-  `<p t="${startTime*1000 + frameN*(1000/fps)|0}" d="${(1000/fps)+1|0}" wp="${frameN%4+1}" ws="1"><s p="1">​</s>
+
+<p t="${startTime*1000}" d="${(1000/fps)|0}" wp="1" ws="1"><s p="1">​</s>
 ${
+  arrArr.map((arr,frameN)=>
   new Array(height/2|0).fill``.map((_,i) =>
       new Array(width).fill``.map((_,j) =>
-        (arr[i*2][j-1]!=arr[i*2][j] ? `<s p="${colorsArray.indexOf(arr[i*2][j])+2}">` : "")+`█`
+        (arr[i*2][j-1]!=arr[i*2][j] ? `<s t="${frameN*(1000/fps)|0}" p="${colorsArray.indexOf(arr[i*2][j])+2}">` : "")+`█`+(arr[i*2][j+1]!=arr[i*2][j] ? `</s><s t="${(frameN+.5)*(1000/fps)|0}">​</s>` : "")
       ).join``
      )
   .join`
-`}
-<s p="1">​</s></p>`
+`
+)
+}</p>
 
-+`<p t="${startTime*1000 + frameN*(1000/fps)+1|0}" d="${(1000/fps)|0}" wp="${frameN%4+1}" ws="1"><s p="1">​</s>
+
+<p t="${startTime*1000}" d="${(1000/fps)+1|0}" wp="1" ws="1"><s p="1">​</s>
 ${
+  arrArr.map((arr,frameN)=>
   new Array(height/2|0).fill``.map((_,i) =>
       new Array(width).fill``.map((_,j) =>
-        (arr[i*2+1][j-1]!=arr[i*2+1][j] ? `<s p="${colorsArray.indexOf(arr[i*2+1][j])+2}">` : "")+`▄`
+        (arr[i*2+1][j-1]!=arr[i*2+1][j] ? `<s t="${frameN*(1000/fps)|0}" p="${colorsArray.indexOf(arr[i*2+1][j])+2}">` : "")+`▄`+(arr[i*2+1][j+1]!=arr[i*2+1][j] ? `</s><s t="${(frameN+.5)*(1000/fps)|0}">​</s>` : "")
       ).join``
      )
   .join`
-`}
-<s p="1">​</s></p>`
+`
+)
+}</p>
 
-
-
-).join``
-  
-
-}
 </body>
 </timedtext>`, filename);
 }

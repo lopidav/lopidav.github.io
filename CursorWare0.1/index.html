@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P High-Accuracy Cursors</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; cursor: crosshair; }
+        
+        .cursor-entity {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            will-change: transform, z-index;
+            opacity: 1;
+        }
+
+        .cursor-sprite-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .cursor-icon {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            top: -3px; 
+            left: -10px; 
+            transform-origin: 10px 3px; 
+            overflow: visible; 
+            filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
+        }
+
+        .facing-left { transform: rotate(-15deg); }
+
+        /* Snappy, Slapstick Animations (Wrist pivot) */
+        .anim-hf { animation: highfive 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: 2px 19px; }
+        @keyframes highfive {
+            0% { transform: rotate(0deg) scale(1); }
+            30% { transform: rotate(-45deg) scale(1.5); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .anim-slap-strike { animation: slapstrike 0.25s cubic-bezier(0.25, 1, 0.5, 1); transform-origin: 2px 19px; }
+        @keyframes slapstrike {
+            0% { transform: rotate(0deg) scale(1); }
+            40% { transform: rotate(-60deg) scale(1.3); } /* Huge windup */
+            60% { transform: rotate(45deg) translateX(10px) scale(1.1); } /* Instant snap forward */
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .anim-slap-receive { animation: slapreceive 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97); transform-origin: 2px 19px; }
+        @keyframes slapreceive {
+            0% { transform: rotate(0deg) translateX(0); }
+            20% { transform: rotate(25deg) translateX(15px); } /* Knocked right */
+            40% { transform: rotate(-15deg) translateX(-5px); } /* Rebound */
+            60% { transform: rotate(5deg) translateX(5px); } /* Settle */
+            100% { transform: rotate(0deg) translateX(0); }
+        }
+
+        /* Effects */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            20% { transform: translate(-50%, -80%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+        }
+
+        @keyframes slapTextAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.1) rotate(-15deg); }
+            30% { opacity: 1; transform: translate(calc(-50% + var(--dx)*0.5), calc(-50% + var(--dy)*0.5)) scale(1.2) rotate(5deg); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(0deg); }
+        }
+
+        @keyframes rainbowText {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        .cursor-label {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            font-weight: bold;
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            pointer-events: none;
+        }
+        body.labels-visible .cursor-label { opacity: 1; }
+
+        #lobby { transition: opacity 0.2s ease; }
+        .hidden-fade { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <!-- LOBBY UI -->
+    <div id="lobby" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-[60]">
+        <div class="bg-slate-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-slate-700">
+            <h1 class="text-3xl font-bold mb-2 text-indigo-400">High-Precision Party</h1>
+            <p class="text-slate-400 mb-8 text-sm">Low-latency P2P synchronization.</p>
+
+            <div id="loading-state" class="hidden text-indigo-400 font-semibold mb-4 animate-pulse">
+                Connecting to PeerJS...
+            </div>
+
+            <div id="action-state">
+                <button id="btn-host" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-6 shadow-lg">
+                    Create New Room
+                </button>
+                <div class="flex items-center my-4">
+                    <div class="flex-grow border-t border-slate-600"></div>
+                    <span class="px-3 text-slate-500 text-sm">OR</span>
+                    <div class="flex-grow border-t border-slate-600"></div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="input-room-id" placeholder="Room ID..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    <button id="btn-join" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        Join
+                    </button>
+                </div>
+                <p id="error-msg" class="text-red-400 text-sm mt-3 h-4"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROMPT TO LOCK CURSOR -->
+    <div id="click-prompt" style="display: none;" class="fixed inset-0 items-center justify-center bg-slate-900/40 z-[100] cursor-pointer">
+        <div class="bg-indigo-600 px-6 py-3 rounded-full font-bold shadow-2xl animate-bounce mt-32">
+            Click anywhere to start moving
+        </div>
+    </div>
+
+    <!-- GAME UI -->
+    <div id="game-ui" class="absolute inset-0 hidden pointer-events-none z-[110]">
+        <div class="absolute top-4 left-4 bg-slate-800/90 backdrop-blur border border-slate-700 p-4 rounded-lg pointer-events-auto shadow-xl">
+            <div class="flex items-center gap-2 mb-2">
+                <code id="display-room-id" class="text-indigo-400 font-mono font-bold text-sm">...</code>
+                <button id="btn-copy" class="p-1 hover:bg-slate-700 rounded transition-colors" title="Copy Room ID">
+                    <svg id="icon-copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <svg id="icon-check" class="hidden text-emerald-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+            </div>
+            <div class="text-xs text-slate-300 font-medium mb-1">
+                <span id="player-count">1</span> Users Synced @ 60Hz
+            </div>
+            <div class="text-[10px] text-slate-500 mt-2 space-y-1">
+                <div>[ESC] Release cursor</div>
+                <div>[TAB] Show names</div>
+                <div>[CLICK] High-five / Slap / Break Free</div>
+                <div>[DRAG] Grab cursors</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
+
+    <script>
+        // --- CONSTANTS & ASSETS ---
+        // The curled finger point you preferred!
+        const PATH_POINTER = "M18.5 8c-1.38 0-2.5 1.12-2.5 2.5V11h-.5V5.5C15.5 4.12 14.38 3 13 3s-2.5 1.12-2.5 2.5V11h-.5V4.5C10 3.12 8.88 2 7.5 2S5 3.12 5 4.5V14l-2.61-1.04a2.5 2.5 0 0 0-3.21 1.34l-.08.21c-.34.93-.05 1.99.73 2.6L8 23h8c3.86 0 7-3.14 7-7V10.5c0-1.38-1.12-2.5-2.5-2.5z";
+        // Flat hand for slapping/high-fiving
+        const PATH_SLAP_STRIKE = "M20 9V4c0-1.1-.9-2-2-2s-2 .9-2 2v1h-.5V2.5C15.5 1.4 14.6.5 13.5.5S11.5 1.4 11.5 2.5v3h-.5V4c0-1.1-.9-2-2-2s-2 .9-2 2v6.5l-2.6-1.1c-.8-.3-1.7-.1-2.2.6-.5.7-.5 1.6.1 2.2l4.8 4.6c1.3 1.2 3 1.9 4.8 1.9 3.8 0 6.9-3.1 6.9-6.9V9c0-1.1-.9-2-2-2z";
+        // Fanned out fingers for receiving the slap (Jazz Hands)
+        const PATH_JAZZ_HAND = "M21 9l-2.6-6.4c-.4-1-1.5-1.5-2.5-1.1-.9.4-1.4 1.5-1 2.5L16.2 8H15L12.4.9c-.4-1-1.5-1.4-2.5-1-.9.4-1.3 1.5-.9 2.5L11.2 9H10l-1-7.2c-.1-1.1-1.2-1.9-2.3-1.7-1.1.1-1.9 1.2-1.7 2.3l1.3 8.3H5L2.3 5.4c-.6-.9-1.9-1.2-2.8-.6-.9.6-1.1 1.9-.5 2.8l5.9 10.2C6.4 20.4 9.2 22 12.2 22 16.9 22 21 18.2 21 13.5V11c0-1.1-.9-2-2-2z";
+        
+        // --- SYNTHESIZED AUDIO ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function createNoiseBuffer(durationSec) {
+            const bufferSize = audioCtx.sampleRate * durationSec;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            return buffer;
+        }
+
+        function playSlapSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = createNoiseBuffer(0.1);
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            // Randomize pitch and resonance for organic squish
+            filter.frequency.value = 800 + (Math.random() * 200 - 100);
+            filter.Q.value = 1.5 + (Math.random() * 0.6 - 0.3);
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.8, audioCtx.currentTime); 
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1 + (Math.random() * 0.04 - 0.02));
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            noise.start();
+        }
+
+        function playHighFiveSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = createNoiseBuffer(0.3);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            // Randomize high-five pitch
+            filter.frequency.value = 1500 + (Math.random() * 400 - 200);
+            filter.Q.value = 1 + Math.random();
+            const gain = audioCtx.createGain();
+            
+            const vol = 1 + (Math.random() * 0.2 - 0.1);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.1 * vol, audioCtx.currentTime + 0.05);
+            gain.gain.linearRampToValueAtTime(1.2 * vol, audioCtx.currentTime + 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2 + (Math.random()*0.05));
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // --- GAME CORE ---
+        const GameState = {
+            isHost: false,
+            myId: null,
+            roomId: null,
+            isInGame: false,
+            isClickedIn: false,
+            peers: {}, 
+            localPos: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+            lastSentMouse: { x: 0, y: 0 },
+            localCursorEl: null,
+            
+            lastLocalPosX: null,
+            lastLocalPosY: null,
+            baseZ: {}, 
+            currentZMap: {}, 
+            overlaps: {}, // Locks Z layer relationships when standing still
+            activeDrags: {},
+            slapCombos: {}, 
+            hfCombos: {} 
+        };
+
+        let peer = null;
+        let hostConnection = null; 
+        let clientConnections = {}; 
+
+        const SEND_RATE = 1000 / 60; 
+        const LERP_SPEED = 0.8; 
+        const HIT_RADIUS = 35; // pixels
+
+        let interactingPeer = null;
+        let isDragging = false;
+        let dragStartPos = { x: 0, y: 0 };
+        let mouseDownTime = 0;
+        let recentHits = {}; 
+        let pendingHitTimeout = null;
+
+        function getColorFromId(id) {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            return `hsl(${Math.abs(hash) % 360}, 85%, 65%)`;
+        }
+
+        function getComboColor(combo) {
+            if (combo === 1) return 'rgb(255, 255, 255)';
+            if (combo <= 10) {
+                const p = (combo - 1) / 9;
+                return `rgb(255, 255, ${Math.floor(255 - p*255)})`;
+            }
+            if (combo <= 25) {
+                const p = (combo - 10) / 15;
+                return `rgb(255, ${Math.floor(255 - p*255)}, 0)`;
+            }
+            if (combo <= 100) {
+                const p = (combo - 25) / 75;
+                return `rgb(${Math.floor(255 - p*(255-173))}, ${Math.floor(p*216)}, ${Math.floor(p*230)})`;
+            }
+            if (combo < 1000) {
+                const p = Math.min(1, (combo - 100) / 400);
+                return `rgb(${Math.floor(173 - p*(173-128))}, ${Math.floor(216 - p*216)}, ${Math.floor(230 - p*(230-128))})`;
+            }
+            return 'rgb(128, 0, 128)';
+        }
+
+        function promoteZ(actorId, targetId) {
+            if (!GameState.baseZ[actorId]) GameState.baseZ[actorId] = 100;
+            if (!GameState.baseZ[targetId]) GameState.baseZ[targetId] = 100;
+            
+            if (GameState.baseZ[actorId] <= GameState.baseZ[targetId]) {
+                GameState.baseZ[actorId] = GameState.baseZ[targetId] + 1;
+            }
+        }
+
+        function enterGame() {
+            GameState.isInGame = true;
+            lobbyEl.classList.add('hidden-fade');
+            setTimeout(() => lobbyEl.style.display = 'none', 200);
+            gameUiEl.classList.remove('hidden');
+            document.getElementById('display-room-id').innerText = GameState.roomId;
+            document.getElementById('click-prompt').style.display = 'flex';
+            
+            GameState.baseZ[GameState.myId] = 100;
+
+            requestAnimationFrame(renderLoop);
+            setInterval(networkTick, SEND_RATE);
+        }
+
+        function createCursorElement(id, isLocal = false) {
+            const color = getColorFromId(id);
+            const el = document.createElement('div');
+            el.className = 'cursor-entity';
+            
+            const facingClass = 'facing-left'; 
+            const spriteId = isLocal ? 'sprite-local' : 'sprite-' + id;
+            
+            el.innerHTML = `
+                <div class="cursor-sprite-wrapper" id="${spriteId}">
+                    <svg class="cursor-icon ${facingClass}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                        <path d="${PATH_POINTER}" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="cursor-label" style="top: 25px; left: 15px; color: ${color};">
+                    ${isLocal ? 'YOU' : id.substring(0, 5)}
+                </div>
+            `;
+            document.getElementById('cursor-container').appendChild(el);
+            return el;
+        }
+
+        function setHandShape(id, shapePath) {
+            const spriteId = id === GameState.myId ? 'sprite-local' : 'sprite-' + id;
+            const el = document.getElementById(spriteId);
+            if (el) {
+                const pathEl = el.querySelector('path');
+                if (pathEl) pathEl.setAttribute('d', shapePath);
+            }
+        }
+
+        const playAnim = (spriteEl, animClass) => {
+            if (!spriteEl) return;
+            spriteEl.classList.remove('anim-hf', 'anim-slap-strike', 'anim-slap-receive');
+            void spriteEl.offsetWidth; 
+            spriteEl.classList.add(animClass);
+        };
+
+        function showSlapText(x, y, combo, targetZIndex) {
+            const textEl = document.createElement('div');
+            
+            // Randomize fly-out
+            const angle = (Math.random() - 0.5) * Math.PI; 
+            const dist = Math.random() * 40 + 30;
+            textEl.style.setProperty('--dx', `${Math.sin(angle) * dist}px`);
+            textEl.style.setProperty('--dy', `${-Math.cos(angle) * dist - 20}px`);
+
+            textEl.className = 'absolute text-sm md:text-base font-black italic select-none pointer-events-none drop-shadow-md';
+            textEl.style.left = x + 'px';
+            textEl.style.top = y + 'px';
+            textEl.style.zIndex = targetZIndex + 1;
+
+            if (combo >= 1000) {
+                textEl.innerText = 'SLAPAFICATION!!!!';
+                textEl.className = 'absolute text-xl md:text-2xl font-black italic select-none pointer-events-none drop-shadow-2xl';
+                textEl.style.backgroundImage = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+                textEl.style.webkitBackgroundClip = 'text';
+                textEl.style.color = 'transparent';
+                textEl.style.animation = 'slapTextAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, rainbowText 0.5s linear infinite';
+            } else {
+                textEl.innerText = combo > 1 ? `SLAP! x${combo}` : 'SLAP!';
+                textEl.style.color = getComboColor(combo);
+                textEl.style.textShadow = '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                textEl.style.animation = 'slapTextAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+            }
+            
+            document.body.appendChild(textEl);
+            setTimeout(() => textEl.remove(), 800);
+        }
+
+        function showScorePop(x, y, diff, combo, targetZIndex) {
+            const scoreEl = document.createElement('div');
+            
+            const angle = (Math.random() - 0.5) * Math.PI; 
+            const dist = Math.random() * 40 + 30;
+            scoreEl.style.setProperty('--dx', `${Math.sin(angle) * dist}px`);
+            scoreEl.style.setProperty('--dy', `${-Math.cos(angle) * dist - 20}px`);
+
+            scoreEl.className = 'absolute text-xs md:text-sm font-black italic select-none pointer-events-none drop-shadow-md';
+            scoreEl.style.left = x + 'px';
+            scoreEl.style.top = y + 'px';
+            scoreEl.style.zIndex = targetZIndex + 1;
+            
+            let evalText;
+            if (diff <= 50) evalText = 'PERFECT!'; 
+            else if (diff <= 150) evalText = 'GREAT!'; 
+            else if (diff <= 300) evalText = 'GOOD'; 
+            else evalText = 'SLOW'; 
+            
+            if (combo >= 1000) {
+                scoreEl.innerText = 'HIGHFIVIFICATION!!!!';
+                scoreEl.className = 'absolute text-lg md:text-xl font-black italic select-none pointer-events-none drop-shadow-2xl';
+                scoreEl.style.backgroundImage = 'linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+                scoreEl.style.webkitBackgroundClip = 'text';
+                scoreEl.style.color = 'transparent';
+                scoreEl.style.animation = 'slapTextAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, rainbowText 0.5s linear infinite';
+            } else {
+                scoreEl.innerText = combo > 1 ? `${evalText} x${combo} (${diff}ms)` : `${evalText} (${diff}ms)`;
+                scoreEl.style.color = getComboColor(combo);
+                scoreEl.style.textShadow = '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                scoreEl.style.animation = 'slapTextAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+            }
+
+            document.body.appendChild(scoreEl);
+            setTimeout(() => scoreEl.remove(), 800);
+        }
+
+        function executeSlapVisuals(slapperId, slappedId) {
+            const now = Date.now();
+            let comboInfo = GameState.slapCombos[slapperId] || { count: 0, lastTime: 0 };
+            
+            if (now - comboInfo.lastTime <= 500) {
+                comboInfo.count++;
+            } else {
+                comboInfo.count = 1;
+            }
+            comboInfo.lastTime = now;
+            GameState.slapCombos[slapperId] = comboInfo;
+
+            promoteZ(slapperId, slappedId);
+
+            const slapperEl = document.getElementById(slapperId === GameState.myId ? 'sprite-local' : 'sprite-' + slapperId);
+            const slappedEl = document.getElementById(slappedId === GameState.myId ? 'sprite-local' : 'sprite-' + slappedId);
+            
+            playAnim(slapperEl, 'anim-slap-strike');
+            setHandShape(slapperId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(slapperId, PATH_POINTER), 300);
+
+            playAnim(slappedEl, 'anim-slap-receive');
+            setHandShape(slappedId, PATH_JAZZ_HAND);
+            setTimeout(() => setHandShape(slappedId, PATH_POINTER), 400);
+            
+            playSlapSound();
+
+            let targetX = GameState.peers[slappedId] ? GameState.peers[slappedId].renderX : GameState.localPos.x;
+            let targetY = GameState.peers[slappedId] ? GameState.peers[slappedId].renderY : GameState.localPos.y;
+            
+            let tz = GameState.currentZMap[slappedId] || 100;
+            let sz = GameState.currentZMap[slapperId] || 100;
+            let textZ = Math.floor((tz + sz) / 2); 
+
+            showSlapText(targetX, targetY, comboInfo.count, textZ);
+        }
+
+        function executeHighFiveVisuals(initiatorId, targetId, diff) {
+            const now = Date.now();
+            let comboInfo = GameState.hfCombos[initiatorId] || { count: 0, lastTime: 0 };
+            
+            if (now - comboInfo.lastTime <= 500) {
+                comboInfo.count++;
+            } else {
+                comboInfo.count = 1;
+            }
+            comboInfo.lastTime = now;
+            GameState.hfCombos[initiatorId] = comboInfo;
+
+            promoteZ(initiatorId, targetId);
+
+            const initiatorEl = document.getElementById(initiatorId === GameState.myId ? 'sprite-local' : 'sprite-' + initiatorId);
+            const targetEl = document.getElementById(targetId === GameState.myId ? 'sprite-local' : 'sprite-' + targetId);
+            
+            playAnim(initiatorEl, 'anim-hf');
+            playAnim(targetEl, 'anim-hf');
+            
+            // Flat hands clapping together
+            setHandShape(initiatorId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(initiatorId, PATH_POINTER), 300);
+            setHandShape(targetId, PATH_SLAP_STRIKE);
+            setTimeout(() => setHandShape(targetId, PATH_POINTER), 300);
+
+            playHighFiveSound();
+
+            let targetX = GameState.peers[targetId] ? GameState.peers[targetId].renderX : GameState.localPos.x;
+            let targetY = GameState.peers[targetId] ? GameState.peers[targetId].renderY : GameState.localPos.y;
+            
+            let tz = GameState.currentZMap[targetId] || 100;
+            let sz = GameState.currentZMap[initiatorId] || 100;
+            let textZ = Math.floor((tz + sz) / 2); 
+
+            showScorePop(targetX, targetY, diff, comboInfo.count, textZ);
+        }
+
+        // --- INTERACTION / DRAG & HIT LOGIC ---
+        window.addEventListener('mousedown', (e) => {
+            if (!GameState.isClickedIn) return;
+
+            const now = Date.now();
+            let brokeFree = false;
+
+            for (let draggerId in GameState.activeDrags) {
+                if (GameState.activeDrags[draggerId].target === GameState.myId && (now - GameState.activeDrags[draggerId].time <= 150)) {
+                    executeSlapVisuals(GameState.myId, draggerId);
+                    broadcastData({ t: 'event', type: 'break_free', from: GameState.myId, to: draggerId });
+                    delete GameState.activeDrags[draggerId];
+                    brokeFree = true;
+                }
+            }
+
+            if (brokeFree) return;
+
+            let hitId = null;
+            let minDist = HIT_RADIUS;
+            
+            for (let id in GameState.peers) {
+                let p = GameState.peers[id];
+                let dx = p.renderX - GameState.localPos.x;
+                let dy = p.renderY - GameState.localPos.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < minDist) {
+                    minDist = dist;
+                    hitId = id;
+                }
+            }
+
+            if (hitId) {
+                interactingPeer = hitId;
+                isDragging = false;
+                mouseDownTime = Date.now();
+                dragStartPos = { x: GameState.localPos.x, y: GameState.localPos.y };
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement) {
+                GameState.localPos.x += e.movementX;
+                GameState.localPos.y += e.movementY;
+                GameState.localPos.x = Math.max(0, Math.min(window.innerWidth, GameState.localPos.x));
+                GameState.localPos.y = Math.max(0, Math.min(window.innerHeight, GameState.localPos.y));
+
+                if (interactingPeer) {
+                    const dist = Math.sqrt(Math.pow(GameState.localPos.x - dragStartPos.x, 2) + Math.pow(GameState.localPos.y - dragStartPos.y, 2));
+                    if (dist > 5) {
+                        isDragging = true;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!GameState.isClickedIn || !interactingPeer) return;
+
+            const now = Date.now();
+            const targetId = interactingPeer;
+
+            if (!isDragging && (now - mouseDownTime <= 300)) {
+                if (recentHits[targetId] && (now - recentHits[targetId] <= 300)) {
+                    const diff = now - recentHits[targetId];
+                    executeHighFiveVisuals(GameState.myId, targetId, diff);
+                    broadcastData({ t: 'event', type: 'highfive_confirm', from: GameState.myId, to: targetId, diff: diff });
+                    delete recentHits[targetId];
+                } else {
+                    broadcastData({ t: 'event', type: 'hit', from: GameState.myId, to: targetId });
+                    
+                    pendingHitTimeout = setTimeout(() => {
+                        executeSlapVisuals(GameState.myId, targetId);
+                        broadcastData({ t: 'event', type: 'slap_execute', from: GameState.myId, to: targetId });
+                    }, 200); 
+                }
+            }
+
+            interactingPeer = null;
+            isDragging = false;
+        });
+
+        // --- NETWORK CORE ---
+        function broadcastData(payload) {
+            if (GameState.isHost) {
+                for (let id in clientConnections) {
+                    if (clientConnections[id].open) clientConnections[id].send(payload);
+                }
+            } else if (hostConnection && hostConnection.open) {
+                hostConnection.send(payload);
+            }
+        }
+
+        function updateRemoteCursor(id, x, y) {
+            const targetX = x * window.innerWidth;
+            const targetY = y * window.innerHeight;
+
+            if (!GameState.peers[id]) {
+                GameState.peers[id] = {
+                    targetX: targetX,
+                    targetY: targetY,
+                    renderX: targetX,
+                    renderY: targetY,
+                    element: createCursorElement(id)
+                };
+                if (!GameState.baseZ[id]) GameState.baseZ[id] = 100;
+                document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
+            } else {
+                const p = GameState.peers[id];
+                p.targetX = targetX;
+                p.targetY = targetY;
+            }
+        }
+
+        function renderLoop() {
+            const now = Date.now();
+            
+            for (let dId in GameState.activeDrags) {
+                if (now - GameState.activeDrags[dId].time > 150) delete GameState.activeDrags[dId];
+            }
+
+            // Calculate speeds to find moving overlaps
+            let speeds = {};
+            speeds[GameState.myId] = Math.hypot(GameState.localPos.x - (GameState.lastLocalPosX || GameState.localPos.x), GameState.localPos.y - (GameState.lastLocalPosY || GameState.localPos.y));
+            GameState.lastLocalPosX = GameState.localPos.x;
+            GameState.lastLocalPosY = GameState.localPos.y;
+            
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                speeds[id] = Math.hypot(p.targetX - (p.lastTargetX || p.targetX), p.targetY - (p.lastTargetY || p.targetY));
+                p.lastTargetX = p.targetX;
+                p.lastTargetY = p.targetY;
+            }
+
+            // Overlap handling logic
+            const allIds = [GameState.myId, ...Object.keys(GameState.peers)];
+            for (let i = 0; i < allIds.length; i++) {
+                for (let j = i + 1; j < allIds.length; j++) {
+                    const idA = allIds[i];
+                    const idB = allIds[j];
+                    const posA = idA === GameState.myId ? GameState.localPos : {x: GameState.peers[idA].renderX, y: GameState.peers[idA].renderY};
+                    const posB = idB === GameState.myId ? GameState.localPos : {x: GameState.peers[idB].renderX, y: GameState.peers[idB].renderY};
+                    
+                    const dist = Math.hypot(posA.x - posB.x, posA.y - posB.y);
+                    const pairKey = idA < idB ? idA + '|' + idB : idB + '|' + idA;
+                    
+                    if (dist < 40) {
+                        if (!GameState.overlaps[pairKey]) {
+                            GameState.overlaps[pairKey] = true;
+                            // Promote the faster one
+                            if (speeds[idA] > speeds[idB] + 0.5) promoteZ(idA, idB);
+                            else if (speeds[idB] > speeds[idA] + 0.5) promoteZ(idB, idA);
+                        }
+                    } else {
+                        delete GameState.overlaps[pairKey];
+                    }
+                }
+            }
+
+            // Compile final render Z-Index map
+            let zMap = {};
+            for (let id in GameState.peers) zMap[id] = (GameState.baseZ[id] || 100) * 10;
+            zMap[GameState.myId] = (GameState.baseZ[GameState.myId] || 100) * 10;
+
+            for (let draggerId in GameState.activeDrags) {
+                let draggedId = GameState.activeDrags[draggerId].target;
+                let dragLayer = 10000 + (GameState.baseZ[draggedId] || 100) * 10;
+                
+                zMap[draggedId] = dragLayer;
+                zMap[draggerId] = dragLayer + 5; 
+            }
+            
+            GameState.currentZMap = zMap; 
+
+            if (GameState.localCursorEl) {
+                GameState.localCursorEl.style.zIndex = zMap[GameState.myId];
+                GameState.localCursorEl.style.transform = `translate3d(${GameState.localPos.x}px, ${GameState.localPos.y}px, 0)`;
+            }
+
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                p.element.style.zIndex = zMap[id];
+                p.renderX += (p.targetX - p.renderX) * LERP_SPEED;
+                p.renderY += (p.targetY - p.renderY) * LERP_SPEED;
+                p.element.style.transform = `translate3d(${p.renderX}px, ${p.renderY}px, 0)`;
+            }
+            
+            requestAnimationFrame(renderLoop);
+        }
+
+        function networkTick() {
+            if (!GameState.isClickedIn || !GameState.isInGame) return;
+
+            const xNorm = GameState.localPos.x / window.innerWidth;
+            const yNorm = GameState.localPos.y / window.innerHeight;
+
+            if (isDragging && interactingPeer) {
+                promoteZ(GameState.myId, interactingPeer);
+                GameState.activeDrags[GameState.myId] = { target: interactingPeer, time: Date.now() };
+
+                if (GameState.peers[interactingPeer]) {
+                    GameState.peers[interactingPeer].targetX = GameState.localPos.x;
+                    GameState.peers[interactingPeer].targetY = GameState.localPos.y;
+                }
+
+                broadcastData({
+                    t: 'event', type: 'drag', dragger: GameState.myId, dragged: interactingPeer,
+                    x: parseFloat(xNorm.toFixed(5)), y: parseFloat(yNorm.toFixed(5))
+                });
+            }
+
+            if (xNorm === GameState.lastSentMouse.x && yNorm === GameState.lastSentMouse.y) return;
+
+            broadcastData({
+                t: 'c', id: GameState.myId,
+                x: parseFloat(xNorm.toFixed(5)), y: parseFloat(yNorm.toFixed(5))
+            });
+
+            GameState.lastSentMouse.x = xNorm;
+            GameState.lastSentMouse.y = yNorm;
+        }
+
+        // --- POINTER LOCK & TAB TOGGLE ---
+        const lobbyEl = document.getElementById('lobby');
+        const gameUiEl = document.getElementById('game-ui');
+        const clickPrompt = document.getElementById('click-prompt');
+
+        let tabDownTime = 0;
+        let labelsToggled = false;
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' && GameState.isClickedIn) {
+                e.preventDefault();
+                if (!e.repeat) {
+                    tabDownTime = Date.now();
+                    document.body.classList.add('labels-visible');
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Tab' && GameState.isClickedIn) {
+                e.preventDefault();
+                if (Date.now() - tabDownTime < 300) {
+                    labelsToggled = !labelsToggled;
+                }
+                
+                if (!labelsToggled) {
+                    document.body.classList.remove('labels-visible');
+                } else {
+                    document.body.classList.add('labels-visible');
+                }
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            labelsToggled = false;
+            document.body.classList.remove('labels-visible');
+        });
+
+        clickPrompt.addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.body.requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement) {
+                GameState.isClickedIn = true;
+                clickPrompt.style.display = 'none';
+                gameUiEl.classList.add('hidden');
+                if (!GameState.localCursorEl) {
+                    GameState.localCursorEl = createCursorElement(GameState.myId, true);
+                }
+            } else {
+                GameState.isClickedIn = false;
+                if (GameState.isInGame) {
+                    clickPrompt.style.display = 'flex';
+                    gameUiEl.classList.remove('hidden');
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            for (let id in GameState.peers) {
+                const p = GameState.peers[id];
+                const xNorm = p.targetX / (window.innerWidth || 1);
+                const yNorm = p.targetY / (window.innerHeight || 1);
+                p.targetX = xNorm * window.innerWidth;
+                p.targetY = yNorm * window.innerHeight;
+            }
+        });
+
+        // --- PEER.JS INITIALIZATION & EVENT RELAY ---
+        function initPeer(onReady) {
+            document.getElementById('action-state').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+            peer = new Peer(null, { debug: 1 });
+            peer.on('open', (id) => {
+                GameState.myId = id;
+                onReady(id);
+            });
+            peer.on('error', (err) => {
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('action-state').classList.remove('hidden');
+                document.getElementById('error-msg').innerText = "Error: " + err.type;
+            });
+        }
+
+        document.getElementById('btn-host').addEventListener('click', () => {
+            initPeer((id) => {
+                GameState.isHost = true;
+                GameState.roomId = id;
+                peer.on('connection', (conn) => {
+                    clientConnections[conn.peer] = conn;
+                    conn.on('data', (data) => {
+                        if (data.t === 'c') {
+                            updateRemoteCursor(data.id, data.x, data.y);
+                        } else if (data.t === 'event') {
+                            if (data.type === 'hit') {
+                                promoteZ(data.from, data.to);
+                                if (data.to === GameState.myId) recentHits[data.from] = Date.now();
+                            } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
+                                clearTimeout(pendingHitTimeout);
+                                executeHighFiveVisuals(data.from, GameState.myId, data.diff);
+                            } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
+                                executeSlapVisuals(data.from, GameState.myId);
+                            } else if (data.type === 'drag') {
+                                promoteZ(data.dragger, data.dragged);
+                                GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+
+                                if (data.dragged === GameState.myId) {
+                                    GameState.localPos.x = data.x * window.innerWidth;
+                                    GameState.localPos.y = data.y * window.innerHeight;
+                                } else if (GameState.peers[data.dragged]) {
+                                    GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                                    GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                                }
+                            } else if (data.type === 'break_free') {
+                                executeSlapVisuals(data.from, data.to);
+                                delete GameState.activeDrags[data.to];
+                                if (data.to === GameState.myId) {
+                                    isDragging = false;
+                                    interactingPeer = null;
+                                }
+                            }
+                        }
+                        
+                        for (let otherId in clientConnections) {
+                            if (otherId !== conn.peer && clientConnections[otherId].open) {
+                                clientConnections[otherId].send(data);
+                            }
+                        }
+                    });
+                    conn.on('close', () => {
+                        if(GameState.peers[conn.peer]) {
+                            GameState.peers[conn.peer].element.remove();
+                            delete GameState.peers[conn.peer];
+                        }
+                        document.getElementById('player-count').innerText = Object.keys(GameState.peers).length + 1;
+                    });
+                });
+                enterGame();
+            });
+        });
+
+        document.getElementById('btn-join').addEventListener('click', () => {
+            const joinId = document.getElementById('input-room-id').value.trim();
+            if (!joinId) return;
+            initPeer((id) => {
+                GameState.isHost = false;
+                GameState.roomId = joinId;
+                hostConnection = peer.connect(joinId, { reliable: false });
+                hostConnection.on('open', () => enterGame());
+                hostConnection.on('data', (data) => {
+                    if (data.t === 'c' && data.id !== GameState.myId) {
+                        updateRemoteCursor(data.id, data.x, data.y);
+                    } else if (data.t === 'event') {
+                        if (data.type === 'hit') {
+                            promoteZ(data.from, data.to);
+                            if (data.to === GameState.myId) recentHits[data.from] = Date.now();
+                        } else if (data.type === 'highfive_confirm' && data.to === GameState.myId) {
+                            clearTimeout(pendingHitTimeout);
+                            executeHighFiveVisuals(data.from, GameState.myId, data.diff);
+                        } else if (data.type === 'slap_execute' && data.to === GameState.myId) {
+                            executeSlapVisuals(data.from, GameState.myId);
+                        } else if (data.type === 'drag') {
+                            promoteZ(data.dragger, data.dragged);
+                            GameState.activeDrags[data.dragger] = { target: data.dragged, time: Date.now() };
+
+                            if (data.dragged === GameState.myId) {
+                                GameState.localPos.x = data.x * window.innerWidth;
+                                GameState.localPos.y = data.y * window.innerHeight;
+                            } else if (GameState.peers[data.dragged]) {
+                                GameState.peers[data.dragged].targetX = data.x * window.innerWidth;
+                                GameState.peers[data.dragged].targetY = data.y * window.innerHeight;
+                            }
+                        } else if (data.type === 'break_free') {
+                            executeSlapVisuals(data.from, data.to);
+                            delete GameState.activeDrags[data.to];
+                            if (data.to === GameState.myId) {
+                                isDragging = false;
+                                interactingPeer = null;
+                            }
+                        }
+                    }
+                });
+            });
+        });
+
+        document.getElementById('btn-copy').addEventListener('click', () => {
+            const ci = document.getElementById('icon-copy');
+            const ck = document.getElementById('icon-check');
+            navigator.clipboard.writeText(GameState.roomId).then(() => {
+                ci.classList.add('hidden'); ck.classList.remove('hidden');
+                setTimeout(() => { ci.classList.remove('hidden'); ck.classList.add('hidden'); }, 2000);
+            });
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+//image to subtitles tool
+// uses the new method with sideways subtitles and only one panel per frame
+
+document.getElementById('submitBtn').addEventListener('click', () => {
+    const start = document.getElementById('startTime').value;
+    const end = document.getElementById('endTime').value;
+    let width = parseInt(document.getElementById('height').value, 10) || 125;
+    let height = parseInt(document.getElementById('width').value, 10) || 44;
+    
+    // Get the new quantization value
+    const quantLevels = parseInt(document.getElementById('quantization').value, 10) || 256;
+    
+    const fileInput = document.getElementById('imageUpload');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please upload an image first.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+			const imageAspect = img.width/(img.height*5.5);
+			const targetAspect = height/width;
+			let targetWidth = width
+			let targetHeight = height;
+			if (imageAspect > targetAspect) {
+				widtargetWidthth = Math.round(height / imageAspect);
+			} else {
+				targetHeight = Math.round(width * imageAspect);
+			}
+				console.log(imageAspect, targetAspect, width, height, img.width, img.height);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(90 * Math.PI / 180);
+            ctx.drawImage(img, -targetHeight / 2, -targetWidth / 2, targetHeight, targetWidth);
+
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const pixelArray = Array.from(imageData.data);
+
+            // --- QUANTIZATION LOGIC ---
+            // Only apply if the user selects fewer than 256 colors per channel
+            if (quantLevels > 1 && quantLevels < 256) {
+                // Calculate the size of each "step" in the 0-255 range
+                const step = 255 / (quantLevels - 1);
+                
+                for (let i = 0; i < pixelArray.length; i += 4) {
+                    // Snap the Red, Green, and Blue values to the nearest step
+                    pixelArray[i] = Math.round(Math.round(pixelArray[i] / step) * step);         // Red
+                    pixelArray[i + 1] = Math.round(Math.round(pixelArray[i + 1] / step) * step); // Green
+                    pixelArray[i + 2] = Math.round(Math.round(pixelArray[i + 2] / step) * step); // Blue
+                    pixelArray[i + 3] = Math.round(Math.round(pixelArray[i + 3] / step) * step); // Alpha
+                    if (pixelArray[i + 3] <= 3) pixelArray[i] = pixelArray[i+1] = pixelArray[i+2] = pixelArray[i+2] = 0;
+                    if (pixelArray[i + 3] > 254) pixelArray[i + 3] == 254;
+                }
+            }
+			// 1. Convert your standard array back into an 8-bit clamped array
+            const clampedArray = new Uint8ClampedArray(pixelArray);
+            
+            // 2. Create a new ImageData object with your new pixels and dimensions
+            const newImageData = new ImageData(clampedArray, width, height);
+            
+            // 3. Paint the new image data back onto the canvas at coordinates (0, 0)
+            ctx.putImageData(newImageData, 0, 0);
+            // -----------------------------
+            // The array passed here is now mathematically quantized
+            customFileGenerator(pixelArray, start, end, width, height);
+        };
+        img.src = event.target.result;
+    };
+
+    reader.readAsDataURL(file);
+});
+
+function customFileGenerator(pixelArray, start, end, width, height) {
+	let colors = new Set();
+	let pixelArrayProccessed = new Array(height).fill(0).map(_=>[]);
+    for (let i = 0; i < pixelArray.length; i += 4) {
+        const r = pixelArray[i];
+        const g = pixelArray[i + 1];
+        const b = pixelArray[i + 2];
+        const a = pixelArray[i + 3];
+		const hex = rgbaToHexA(r,g,b,a);
+        colors.add(hex);
+		pixelArrayProccessed[Math.floor(i/width/4)][(i/4)%width] = hex;
+    }
+
+
+    let fileContent =
+`<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<timedtext format="3">
+<head>
+<ws id="0" wfo="0" pd="3"/>
+<wp id="0" ap="4" ah="53" av="47"/>
+<pen id="1" fs="6" sz="0" bo="0" fo="0" of="2"/>
+<pen id="2" p="1" bo="254"/>
+`;
+	let colorToId = {};
+	[...colors].forEach((element, i) => {
+		colorToId[element] = 3+i;
+		fileContent += `<pen id="${3+i}" p="2" bc="${element.split(`+`)[0]}"`
+        const bo = +element.split(`+`)[1];
+        if (bo < 254) fileContent += `bo="${bo}">`;
+        else fileContent += `>`;
+	});
+	fileContent += `</head>
+<body>
+<p t="0" d="10" p="0">Subtitles made with a tool by lopidav</p>
+<p t="${start}" d="${end}" p="0" ws="0" wp="0">`
+    for (let i = 0; i < pixelArrayProccessed.length; i++) {
+		fileContent += `
+`;
+		for (let j = 0; j < pixelArrayProccessed[i].length; j++) {
+			// if (j > 0 && pixelArrayProccessed[i][j] != pixelArrayProccessed[i][j-1])
+			// 	fileContent += `</s>`;
+			if (j == 0 ||  pixelArrayProccessed[i][j] != pixelArrayProccessed[i][j-1])
+				fileContent += `<s p="${colorToId[pixelArrayProccessed[i][j]]}">`;
+			fileContent += ` `;
+		}
+		fileContent += `<\s>`
+    }
+	fileContent += ` 
+</p>
+</body>
+</timedtext>`
+
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=UTF-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    
+    a.href = url;
+    a.download = 'imageToYTT_1PPF_V2.ytt';
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function rgbaToHexA(r, g, b, a) {
+    const toHex = (value) => {
+        const hex = Math.round(value).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    const hexR = toHex(r);
+    const hexG = toHex(g);
+    const hexB = toHex(b);
+    
+    // const hexA = toHex(a); 
+
+    
+    return `#${hexR}${hexG}${hexB}+${a}`.toUpperCase();
+}

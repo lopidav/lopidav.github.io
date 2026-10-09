@@ -53,6 +53,15 @@
                 </div>
             </div>
             <div class="mb-4 border-b border-slate-700 pb-4">
+                <label for="aspect-ratio-select" class="text-xs text-slate-400 uppercase tracking-wider font-bold flex justify-between mb-2"><span>Aspect Ratio</span></label>
+                <select id="aspect-ratio-select" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-slate-300 text-sm focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer">
+                    <option value="2">2:1</option>
+                    <option value="1.777777">16:9</option>
+                    <option value="1.333333">4:3</option>
+                    <option value="1">1:1</option>
+                </select>
+            </div>
+            <div class="mb-4 border-b border-slate-700 pb-4">
                 <label for="volume-slider" class="text-xs text-slate-400 uppercase tracking-wider font-bold flex justify-between mb-2"><span>Volume</span><span id="volume-display" class="text-indigo-400">50%</span></label>
                 <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
             </div>
@@ -60,11 +69,12 @@
         </div>
     </div>
 
-    <div id="obstacle" class="absolute bg-slate-800 border-4 border-slate-600 rounded-xl shadow-2xl z-20 flex items-center justify-center text-slate-500 font-black text-2xl tracking-widest select-none" style="width: 250px; height: 250px; top: 65%; left: 70%; transform: translate(-50%, -50%);">
-        BLOCK
+    <div id="game-area">
+        <div id="obstacle" class="absolute bg-slate-800 border-4 border-slate-600 rounded-xl shadow-2xl z-20 flex items-center justify-center text-slate-500 font-black text-2xl tracking-widest select-none" style="width: 250px; height: 250px; top: 65%; left: 70%; transform: translate(-50%, -50%);">
+            BLOCK
+        </div>
+        <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
     </div>
-
-    <div id="cursor-container" class="absolute inset-0 pointer-events-none z-10"></div>
 
     <script src="js/assets.js"></script>
     <script src="js/state.js"></script>

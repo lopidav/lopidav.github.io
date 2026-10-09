@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video to YTT (Dynamic FPS Optimized V3)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .form-group { margin-bottom: 10px; }
+        label { display: inline-block; width: 190px; }
+        #status { margin-top: 15px; font-weight: bold; color: #333; }
+        .hint { display: block; margin-left: 195px; color: #666; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+    <h2>Video to YTT Converter (Dynamic FPS Optimized)</h2>
+    
+    <div class="form-group">
+        <label for="startTime">Subtitle Start Time (sec):</label>
+        <input type="number" id="startTime" value="0" step="0.1">
+        <small class="hint">When the subtitles should appear in the video.</small>
+    </div>
+    <div class="form-group">
+        <label for="fullFps">Full Redraw FPS:</label>
+        <input type="number" id="fullFps" value="2" step="1">
+        <small class="hint">Target FPS when the entire screen changes (keeps lag down).</small>
+    </div>
+    <div class="form-group">
+        <label for="partialFps">Partial Redraw FPS Cap:</label>
+        <input type="number" id="partialFps" value="10" step="1">
+        <small class="hint">Max FPS when only small parts of the screen are moving.</small>
+    </div>
+    <div class="form-group">
+        <label for="partialThreshold">Partial Threshold (%):</label>
+        <input type="number" id="partialThreshold" value="15" step="1" min="1" max="100">
+        <small class="hint">Max % of pixels that can change to allow Partial FPS timing.</small>
+    </div>
+    <div class="form-group">
+        <label for="width">Width:</label>
+        <input type="number" id="width" value="70">
+    </div>
+    <div class="form-group">
+        <label for="height">Height:</label>
+        <input type="number" id="height" value="140">
+    </div>
+    <div class="form-group">
+        <label for="quantization">Quantization (2-256):</label>
+        <input type="number" id="quantization" value="256">
+    </div>
+    <div class="form-group">
+        <label for="diffThreshold">Diff Threshold (0-255):</label>
+        <input type="number" id="diffThreshold" value="5">
+        <small class="hint">Pixels changing less than this become transparent.</small>
+    </div>
+    <div class="form-group">
+        <label for="keyframeInterval">Keyframe Interval:</label>
+        <input type="number" id="keyframeInterval" value="30">
+        <small class="hint">Forces a full redraw every N rendered frames.</small>
+    </div>
+    <div class="form-group">
+        <label for="videoUpload">Upload Video:</label>
+        <input type="file" id="videoUpload" accept="video/*">
+    </div>
+    
+    <button id="submitBtn">Submit</button>
+    <div id="status">Waiting for input...</div>
+
+    <video id="videoInput" muted></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        let colorArray = []; 
+        let colorToIdMap = new Map();
+        let allFramesData = [];
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('videoUpload');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please upload a video first.');
+                return;
+            }
+
+            const startTimeSec = parseFloat(document.getElementById('startTime').value) || 0;
+            const fullFps = parseFloat(document.getElementById('fullFps').value) || 2;
+            const partialFps = parseFloat(document.getElementById('partialFps').value) || 10;
+            const partialThreshold = parseFloat(document.getElementById('partialThreshold').value) || 15;
+            const canvasWidth = parseInt(document.getElementById('height').value, 10) || 125;
+            const canvasHeight = parseInt(document.getElementById('width').value, 10) || 44;
+            const quantLevels = parseInt(document.getElementById('quantization').value, 10) || 256;
+            const diffThreshold = parseFloat(document.getElementById('diffThreshold').value) || 5;
+            const keyframeInterval = parseInt(document.getElementById('keyframeInterval').value, 10) || 30;
+            
+            const filename = fileInput.files[0].name.split('.').slice(0, -1).join('') || "output";
+            const videoSrc = URL.createObjectURL(fileInput.files[0]);
+
+            colorArray = [];
+            colorToIdMap.clear();
+            allFramesData = [];
+            
+            document.getElementById('status').innerText = "Processing video frames... This may take a moment.";
+            
+            await extractAndProcessFrames(videoSrc, fullFps, partialFps, partialThreshold, canvasWidth, canvasHeight, quantLevels, diffThreshold, keyframeInterval);
+            
+            document.getElementById('status').innerText = "Constructing optimized YTT file...";
+            generateYTTFile(allFramesData, startTimeSec, fullFps, filename, canvasWidth, canvasHeight);
+            
+            document.getElementById('status').innerText = "Finished! Download starting.";
+        });
+
+        async function extractAndProcessFrames(videoSrc, fullFps, partialFps, partialThreshold, canvasWidth, canvasHeight, quantLevels, diffThreshold, keyframeInterval) {
+            return new Promise((resolve) => {
+                const video = document.getElementById("videoInput");
+                const canvas = document.getElementById("canvas");
+                const ctx = canvas.getContext("2d", { willReadFrequently: true });
+                
+                let seekResolve;
+                video.addEventListener('seeked', function() {
+                    if(seekResolve) seekResolve();
+                });
+
+                video.addEventListener('loadeddata', async function() {
+                    const maxTimeStep = 1 / fullFps;
+                    const minTimeStep = 1 / partialFps;
+                    const duration = video.duration;
+                    const totalPixels = canvasWidth * canvasHeight;
+                    const maxAllowedChangedPixels = totalPixels * (partialThreshold / 100);
+                        console.log("totalPixels", totalPixels);
+                        console.log("maxAllowedChangedPixels", maxAllowedChangedPixels);
+
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
+
+                    let lastRenderedPixels = new Array(canvasHeight).fill(0).map(() => new Array(canvasWidth).fill(null));
+                    let frameIndex = 0;
+                    let framesSinceKeyframe = 0;
+                    
+                    let lastRenderTime = -1; // -1 forces the first frame to always render
+                    let lastKeyframeRenderTime = -1;
+                    let currentTime = 0;
+
+                    while(currentTime < duration) {
+                        video.currentTime = currentTime;
+                        await new Promise(r => seekResolve = r);
+
+                        const imageAspect = video.videoWidth / (video.videoHeight * 5.5);
+                        const targetAspect = canvasHeight / canvasWidth;
+                        let targetWidth = canvasWidth;
+                        let targetHeight = canvasHeight;
+                        
+                        if (imageAspect > targetAspect) {
+                            targetWidth = Math.round(canvasHeight / imageAspect);
+                        } else {
+                            targetHeight = Math.round(canvasWidth * imageAspect);
+                        }
+
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                        ctx.translate(canvasWidth / 2, canvasHeight / 2);
+                        ctx.rotate(90 * Math.PI / 180);
+                        ctx.drawImage(video, -targetHeight / 2, -targetWidth / 2, targetHeight, targetWidth);
+
+                        const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+                        const pixelArray = Array.from(imageData.data);
+
+                        let isFirstFrame = lastRenderTime === -1;
+                        let timeSinceLastRender = currentTime - lastRenderTime;
+                        let isFullRedrawTime = timeSinceLastRender >= (maxTimeStep - 0.001); // 0.001 tolerance for floating point math
+                        
+                        let changedPixelCount = 0;
+                        let exceedsThreshold = false;
+
+                        // Pass 1: Fast scan to see if this frame breaks the partial redraw threshold
+                        if (!isFirstFrame && !isFullRedrawTime) {
+                            for (let i = 0; i < pixelArray.length; i += 4) {
+                                let r = pixelArray[i], g = pixelArray[i + 1], b = pixelArray[i + 2], a = pixelArray[i + 3];
+                                let row = Math.floor((i / 4) / canvasWidth);
+                                let col = (i / 4) % canvasWidth;
+                                let prev = lastRenderedPixels[row][col];
+                                
+                                let diff = prev ? Math.max(
+                                    Math.abs(r - prev.r), Math.abs(g - prev.g), 
+                                    Math.abs(b - prev.b), Math.abs(a - prev.a)
+                                ) : 255;
+
+                                if (diff > diffThreshold) {
+                                    changedPixelCount++;
+                                    // Bail out early if we exceed the partial threshold!
+                                    if (changedPixelCount > maxAllowedChangedPixels) {
+                                        exceedsThreshold = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        console.log("changedPixelCount", changedPixelCount);
+                        console.log("exceedsThreshold", exceedsThreshold);
+                        // Decision: Do we keep this frame?
+                        if (isFirstFrame  || isFullRedrawTime || !exceedsThreshold) {
+                        console.log("Decision: Do we keep this frame? YES");
+                            // YES: Accept the frame
+                            let isKeyframe = framesSinceKeyframe >= keyframeInterval
+                                && (lastKeyframeRenderTime == -1 || currentTime - lastKeyframeRenderTime >= maxTimeStep);
+                            let frameHasChanges = false;
+                            let frameGrid = new Uint16Array(canvasHeight * canvasWidth); 
+
+                            // Pass 2: Actually process the colors and map to ID
+                            for (let i = 0; i < pixelArray.length; i += 4) {
+                                let r = pixelArray[i], g = pixelArray[i + 1], b = pixelArray[i + 2], a = pixelArray[i + 3];
+                                let row = Math.floor((i / 4) / canvasWidth);
+                                let col = (i / 4) % canvasWidth;
+
+                                let prev = lastRenderedPixels[row][col];
+                                let diff = prev ? Math.max(
+                                    Math.abs(r - prev.r), Math.abs(g - prev.g), 
+                                    Math.abs(b - prev.b), Math.abs(a - prev.a)
+                                ) : 255;
+
+                                if (isKeyframe || diff > diffThreshold) {
+                                    lastRenderedPixels[row][col] = {r, g, b, a}; 
+
+                                    let qr = r, qg = g, qb = b, qa = a;
+                                    if (quantLevels > 1 && quantLevels < 256) {
+                                        const step = 255 / (quantLevels - 1);
+                                        qr = Math.round(Math.round(r / step) * step);
+                                        qg = Math.round(Math.round(g / step) * step);
+                                        qb = Math.round(Math.round(b / step) * step);
+                                        qa = Math.round(Math.round(a / step) * step);
+                                        if (qa <= 3) { qr = qg = qb = qa = 0; }
+                                        if (qa > 254) qa = 254;
+                                    }
+
+                                    const hex = rgbaToHexA(qr, qg, qb, qa);
+                                    let colorId = colorToIdMap.get(hex);
+                                    if (colorId === undefined) {
+                                        colorArray.push(hex);
+                                        colorId = colorArray.length; 
+                                        colorToIdMap.set(hex, colorId);
+                                    }
+                                    
+                                    frameGrid[row * canvasWidth + col] = colorId;
+                                    frameHasChanges = true;
+                                }
+                            }
+
+                            if ((isKeyframe || isFullRedrawTime) && frameHasChanges) {framesSinceKeyframe = 0; lastKeyframeRenderTime = currentTime;}
+
+                            allFramesData.push({
+                                t: currentTime, // Store the exact successful time
+                                isKeyframe: isKeyframe,
+                                hasChanges: frameHasChanges,
+                                grid: (frameHasChanges || isKeyframe) ? frameGrid : null
+                            });
+
+                            console.log(currentTime);
+                            lastRenderTime = currentTime;
+                            currentTime = lastRenderTime + minTimeStep; // Step forward by partial
+                            frameIndex++;
+                            framesSinceKeyframe += +frameHasChanges;
+                            console.log("(isKeyframe || isFullRedrawTime)", (isKeyframe || isFullRedrawTime));
+                            console.log("frameHasChanges", frameHasChanges);
+                            console.log("framesSinceKeyframe", framesSinceKeyframe);
+                            console.log(currentTime);
+                        } else {
+                        console.log("Decision: Do we keep this frame? NO");
+                        console.log(currentTime);  
+                            // NO: Too many pixels changed. Scrap it and try stepping forward again
+                            if (exceedsThreshold) currentTime = lastRenderTime + maxTimeStep;
+                            else if (changedPixelCount == 0) currentTime += minTimeStep;
+                            else {
+                                let tempCurrentTime = currentTime;
+                                currentTime = lastRenderTime + Math.min(1, changedPixelCount/maxAllowedChangedPixels)*(maxTimeStep-minTimeStep)+minTimeStep;
+                                if (currentTime < tempCurrentTime + minTimeStep) currentTime = tempCurrentTime + minTimeStep;
+                            }  
+                        console.log(currentTime);  
+                        }
+                    }
+                    resolve();
+                });
+                video.src = videoSrc; 
+            });
+        }
+
+        function generateYTTFile(framesArray, startTimeSec, fullFps, filename, canvasWidth, canvasHeight) {
+            let paragraphObjects = [];
+            let currentActiveParagraphs = [];
+            let nextWpId = 0;
+            const MAX_WP = 100;
+
+            framesArray.forEach((frame, idx) => {
+                // Determine exact timing from the saved dynamic times
+                const exactT = startTimeSec * 1000 + frame.t * 1000;
+                let exactNextT;
+                if (idx + 1 < framesArray.length) {
+                    exactNextT = startTimeSec * 1000 + framesArray[idx + 1].t * 1000;
+                } else {
+                    exactNextT = exactT + (1000 / fullFps); // Estimate length of final frame
+                }
+                
+                const t = Math.floor(exactT);
+
+                if (frame.hasChanges || frame.isKeyframe) {
+                    if (frame.isKeyframe) {
+                        currentActiveParagraphs = []; 
+                    }
+                    
+                    let pObj = {
+                        t: t,
+                        exactEndTime: exactNextT,
+                        grid: frame.grid,
+                        wpId: nextWpId % MAX_WP 
+                    };
+                    nextWpId++;
+                    
+                    paragraphObjects.push(pObj);
+                    
+                    currentActiveParagraphs.forEach(p => p.exactEndTime = exactNextT);
+                    currentActiveParagraphs.push(pObj);
+                } else {
+                    currentActiveParagraphs.forEach(p => p.exactEndTime = exactNextT);
+                }
+            });
+            
+           let fileContent = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n<timedtext format="3">\n<!-- file name: ${filename} -->\n<!-- startTime ${parseFloat(document.getElementById('startTime').value)} -->\n<!-- fullFps ${parseFloat(document.getElementById('fullFps').value)} -->\n<!-- partialFps ${parseFloat(document.getElementById('partialFps').value)} -->\n<!-- partialThreshold ${parseFloat(document.getElementById('partialThreshold').value)} -->\n<!-- height ${parseFloat(document.getElementById('height').value)} -->\n<!-- width ${parseFloat(document.getElementById('width').value)} -->\n<!-- quantization ${parseFloat(document.getElementById('quantization').value)} -->\n<!-- diffThreshold ${parseFloat(document.getElementById('diffThreshold').value)} -->\n<!-- keyframeInterval ${parseFloat(document.getElementById('keyframeInterval').value)} -->\n<head>\n<ws id="0" wfo="0" pd="3"/>\n`;
+            
+            for (let i = 0; i < MAX_WP; i++) {
+                fileContent += `<wp id="${i}" ap="4" ah="53" av="47"/>\n`;
+            }
+
+            fileContent += `<pen id="1" fs="6" sz="0" bc="#000000" bo="0" fo="0" of="2"/>\n<pen id="2" p="1" bo="254"/>\n`;
+            
+            colorArray.forEach((hex, idx) => {
+                const penId = idx + 3;
+                fileContent += `<pen id="${penId}" p="2" bc="${hex.split('+')[0]}"`;
+                const bo = parseInt(hex.split('+')[1], 10);
+                if (bo < 254) fileContent += ` bo="${bo}">\n`;
+                else fileContent += `>\n`;
+            });
+            
+            fileContent += `</head>\n<body>\n<p t="0" d="10" p="0">Subtitles made with a tool by lopidav</p>\n`;
+
+            paragraphObjects.forEach(pObj => {
+                let d = Math.floor(pObj.exactEndTime) - pObj.t;
+                fileContent += `<p t="${pObj.t}" d="${d}" p="0" ws="0" wp="${pObj.wpId}">`;
+                
+                for (let r = 0; r < canvasHeight; r++) {
+                    fileContent += `\n`;
+                    let currentPen = null;
+                    
+                    for (let c = 0; c < canvasWidth; c++) {
+                        let cellColorId = pObj.grid[r * canvasWidth + c];
+                        let cellPen = (cellColorId === 0) ? 1 : cellColorId + 2; 
+                        
+                        if (cellPen !== currentPen) {
+                            fileContent += `<s p="${cellPen}">`;
+                            currentPen = cellPen;
+                        }
+                        fileContent += ` `;
+                    }
+                    if (currentPen !== null) fileContent += `</s>`;
+                }
+                fileContent += ` \n</p>\n`;
+            });
+
+            fileContent += `</body>\n</timedtext>`;
+
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=UTF-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}_Optimized.ytt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function rgbaToHexA(r, g, b, a) {
+            const toHex = (value) => {
+                const hex = Math.round(value).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}+${a}`.toUpperCase();
+        }
+    </script>
+</body>
+</html>

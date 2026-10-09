@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video to YTT (Sideways 1-Panel Method)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .form-group { margin-bottom: 10px; }
+        label { display: inline-block; width: 150px; }
+        #status { margin-top: 15px; font-weight: bold; color: #333; }
+    </style>
+</head>
+<body>
+    <h2>Video to YTT Converter</h2>
+    
+    <div class="form-group">
+        <label for="startTime">Start Time (sec):</label>
+        <input type="number" id="startTime" value="0" step="0.1">
+    </div>
+    <div class="form-group">
+        <label for="fps">FPS:</label>
+        <input type="number" id="fps" value="6" step="1">
+    </div>
+    <div class="form-group">
+        <label for="width">Width:</label>
+        <input type="number" id="width" value="70">
+    </div>
+    <div class="form-group">
+        <label for="height">Height:</label>
+        <input type="number" id="height" value="140">
+    </div>
+    <div class="form-group">
+        <label for="quantization">Quantization (2-256):</label>
+        <input type="number" id="quantization" value="256">
+    </div>
+    <div class="form-group">
+        <label for="videoUpload">Upload Video:</label>
+        <input type="file" id="videoUpload" accept="video/*">
+    </div>
+    
+    <button id="submitBtn">Submit</button>
+    <div id="status">Waiting for input...</div>
+
+    <video id="videoInput" style="display:none;" muted></video>
+    <canvas id="canvas" ></canvas>
+
+    <script>
+        let colors = new Set();
+        let allFramesData = [];
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('videoUpload');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please upload a video first.');
+                return;
+            }
+
+            const startTimeSec = parseFloat(document.getElementById('startTime').value) || 0;
+            const fps = parseFloat(document.getElementById('fps').value) || 6;
+            
+            // Replicating your height/width inversion for sideways rotation
+            const canvasWidth = parseInt(document.getElementById('height').value, 10) || 125;
+            const canvasHeight = parseInt(document.getElementById('width').value, 10) || 44;
+            const quantLevels = parseInt(document.getElementById('quantization').value, 10) || 256;
+            
+            const filename = fileInput.files[0].name.split('.').slice(0, -1).join('') || "output";
+            const videoSrc = URL.createObjectURL(fileInput.files[0]);
+
+            colors.clear();
+            allFramesData = [];
+            
+            document.getElementById('status').innerText = "Processing video frames... This may take a moment.";
+            
+            await extractAndProcessFrames(videoSrc, fps, startTimeSec, canvasWidth, canvasHeight, quantLevels);
+            
+            document.getElementById('status').innerText = "Constructing YTT file...";
+            generateYTTFile(allFramesData, colors, startTimeSec, fps, filename);
+            
+            document.getElementById('status').innerText = "Finished! Download starting.";
+        });
+
+        async function extractAndProcessFrames(videoSrc, fps, startTimeSec, canvasWidth, canvasHeight, quantLevels) {
+            return new Promise((resolve) => {
+                const video = document.getElementById("videoInput");
+                const canvas = document.getElementById("canvas");
+                const ctx = canvas.getContext("2d", { willReadFrequently: true });
+                
+                let seekResolve;
+                video.addEventListener('seeked', function() {
+                    if(seekResolve) seekResolve();
+                });
+
+                video.addEventListener('loadeddata', async function() {
+                    const interval = 1 / fps;
+                    let currentTime = 0;//startTimeSec;
+                    const duration = video.duration;
+
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
+
+                    while(currentTime < duration) {
+                        video.currentTime = currentTime;
+                        await new Promise(r => seekResolve = r);
+
+                        // Rotation and drawing math from your new script
+                        const imageAspect = video.videoWidth / (video.videoHeight * 5.5);
+                        const targetAspect = canvasHeight / canvasWidth;
+                        let targetWidth = canvasWidth;
+                        let targetHeight = canvasHeight;
+                        
+                        if (imageAspect > targetAspect) {
+                            targetWidth = Math.round(canvasHeight / imageAspect);
+                        } else {
+                            targetHeight = Math.round(canvasWidth * imageAspect);
+                        }
+
+                        // Reset transform before drawing a new frame
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                        
+                        ctx.translate(canvasWidth / 2, canvasHeight / 2);
+                        ctx.rotate(90 * Math.PI / 180);
+                        ctx.drawImage(video, -targetHeight / 2, -targetWidth / 2, targetHeight, targetWidth);
+
+                        const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+                        const pixelArray = Array.from(imageData.data);
+
+                        // Quantization logic
+                        if (quantLevels > 1 && quantLevels < 256) {
+                            const step = 255 / (quantLevels - 1);
+                            for (let i = 0; i < pixelArray.length; i += 4) {
+                                pixelArray[i] = Math.round(Math.round(pixelArray[i] / step) * step);
+                                pixelArray[i + 1] = Math.round(Math.round(pixelArray[i + 1] / step) * step);
+                                pixelArray[i + 2] = Math.round(Math.round(pixelArray[i + 2] / step) * step);
+                                pixelArray[i + 3] = Math.round(Math.round(pixelArray[i + 3] / step) * step);
+                                if (pixelArray[i + 3] <= 3) pixelArray[i] = pixelArray[i+1] = pixelArray[i+2] = pixelArray[i+3] = 0;
+                                if (pixelArray[i + 3] > 254) pixelArray[i + 3] = 254;
+                            }
+                        }
+
+                        // Process directly into hex array for memory efficiency
+                        let frameProcessed = new Array(canvasHeight).fill(0).map(_ => []);
+                        for (let i = 0; i < pixelArray.length; i += 4) {
+                            const r = pixelArray[i];
+                            const g = pixelArray[i + 1];
+                            const b = pixelArray[i + 2];
+                            const a = pixelArray[i + 3];
+                            const hex = rgbaToHexA(r, g, b, a);
+                            colors.add(hex);
+                            frameProcessed[Math.floor(i / canvasWidth / 4)][(i / 4) % canvasWidth] = hex;
+                        }
+                        allFramesData.push(frameProcessed);
+
+                        currentTime += interval;
+                    }
+                    resolve();
+                });
+
+                video.src = videoSrc; 
+            });
+        }
+
+        function generateYTTFile(framesArray, colorsSet, startTimeSec, fps, filename) {
+            let fileContent = 
+`<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<timedtext format="3">
+<head>
+<ws id="0" wfo="0" pd="3"/>
+<wp id="0" ap="4" ah="53" av="47"/>
+<pen id="1" fs="6" sz="0" bo="0" fo="0" of="2"/>
+<pen id="2" p="1" bo="254"/>
+`;
+            
+            let colorToId = {};
+            [...colorsSet].forEach((element, i) => {
+                colorToId[element] = 3 + i;
+                fileContent += `<pen id="${3 + i}" p="2" bc="${element.split('+')[0]}"`;
+                const bo = +element.split('+')[1];
+                if (bo < 254) fileContent += ` bo="${bo}">\n`;
+                else fileContent += `>`;
+            });
+            
+            fileContent += `</head>\n<body>\n<p t="0" d="10" p="0">Subtitles made with a tool by lopidav</p>\n`;
+
+            framesArray.forEach((frameGrid, frameIndex) => {
+                const t = Math.floor(startTimeSec * 1000 + frameIndex * (1000 / fps));
+                const d = Math.floor(1000 / fps);
+                
+                fileContent += `<p t="${t}" d="${d}" p="0" ws="0" wp="0">`;
+                
+                for (let i = 0; i < frameGrid.length; i++) {
+                    fileContent += `\n`;
+                    for (let j = 0; j < frameGrid[i].length; j++) {
+                        if (j == 0 || frameGrid[i][j] != frameGrid[i][j-1]) {
+                            fileContent += `<s p="${colorToId[frameGrid[i][j]]}">`;
+                        }
+                        fileContent += ` `;
+                    }
+                    fileContent += `</s>`;
+                }
+                fileContent += `\n`//</p>\n`;
+            });
+
+            fileContent += `</body>\n</timedtext>`;
+
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=UTF-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            a.href = url;
+            a.download = `${filename}_1PPF_V2.ytt`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function rgbaToHexA(r, g, b, a) {
+            const toHex = (value) => {
+                const hex = Math.round(value).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}+${a}`.toUpperCase();
+        }
+    </script>
+</body>
+</html>

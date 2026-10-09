@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superpower RPS</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <h1>Superpower RPS</h1>
+        
+        <div id="lobby-screen" class="screen active">
+            <div style="text-align: center; margin-top: 20px;">
+                <input type="text" id="lobby-name-input" class="input-field" placeholder="Enter Your Name (Optional)" style="font-size: 1.2em; max-width: 300px;">
+            </div>
+            <div class="lobby-container">
+                <div class="lobby-card">
+                    <h2>Host a Game</h2>
+                    <p class="lobby-desc">Share your code or link with a friend.</p>
+                    <h1 id="my-id">Generating...</h1>
+                    <div class="lobby-actions">
+                        <button id="copy-id-btn" class="btn secondary">Copy ID</button>
+                        <button id="copy-link-btn" class="btn primary">Copy Invite Link</button>
+                    </div>
+                </div>
+                
+                <div class="lobby-divider">OR</div>
+                
+                <div class="lobby-card">
+                    <h2>Join a Game</h2>
+                    <p class="lobby-desc">Enter a friend's Room ID to connect.</p>
+                    <input type="text" id="join-id" class="input-field" placeholder="Enter Host ID">
+                    <div class="lobby-actions">
+                        <button id="join-btn" class="btn primary" style="width: 100%;">Connect</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <!-- Opponent Area (Top) -->
+            <div class="player-zone opponent-zone" style="position: relative;">
+                <div id="enemy-timer" class="timer hidden" style="top: 15px; right: 15px;"></div>
+                <div class="player-info">
+                    <h2 id="enemy-name-display">Opponent</h2>
+                    <div id="enemy-score-dots" class="score-dots"></div>
+                </div>
+                <div class="cards-display" id="enemy-cards-list"></div>
+            </div>
+
+            <!-- Center Area (Status, RPS, Draft, Log) -->
+            <div class="center-zone">
+                <h3 id="turn-status">Waiting...</h3>
+
+                <button id="return-draft-btn" class="btn primary hidden pop-in">Return to Draft</button>
+                <button id="future-drafts-btn" class="btn secondary hidden pop-in">See Future Drafts</button>
+                <button id="return-end-btn" class="btn primary hidden pop-in">Return to Results</button>
+
+                <div class="center-top-space">
+                    <div id="enemy-clash-icon" class="clash-icon hidden"></div>
+                </div>
+
+                <div id="history-container" class="history-container"></div>
+
+                <div class="center-bottom-space">
+                    <div id="rps-queue-area" class="rps-queue hidden"></div>
+                    <div id="my-clash-icon" class="clash-icon hidden"></div>
+                    <div id="rps-area" class="hidden">
+                        <button class="rps-btn pop-in" data-choice="rock">
+                            <svg viewBox="0 0 24 24"><path d="M 4,11.5 7,21 h 10 l 0.90313,-8.549666 -5.759486,-2.316928 0.889052,-2.0470199 2.61902,-1.5171386 -1.353541,2.5818917 5.695719,2.4802158 -0.900172,5.518491 L 22,12 18,5 15.5,3 9.5527273,4.8836364"/></svg><span>Rock</span>
+                        </button>
+                        <button class="rps-btn pop-in" data-choice="paper">
+                            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>Paper</span>
+                        </button>
+                        <button class="rps-btn pop-in" data-choice="scissors">
+                            <svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1l-9.64-9.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg><span>Scissors</span>
+                        </button>
+                        <button class="rps-btn pop-in hidden" data-choice="flower">
+                            <svg viewBox="0 0 24 24"><path d="M18.7 12.4c-.28-.16-.57-.29-.86-.4.29-.11.58-.24.86-.4 1.92-1.11 2.99-3.12 2.14-5.16-.9-2.15-3.36-2.65-5.26-1.55-.28.16-.57.29-.86.4-.29-.11-.58-.24-.86-.4-1.92-1.11-4.28-.6-5.26 1.55-.85 2.04.22 4.05 2.14 5.16.28.16.57.29.86.4-.29.11-.58.24-.86.4-1.92 1.11-2.99 3.12-2.14 5.16.9 2.15 3.36 2.65 5.26 1.55.28-.16.57-.29.86-.4.29.11.58.24.86.4 1.92 1.11 4.28.6 5.26-1.55.85-2.04-.22-4.05-2.14-5.16zm-6.7 1.1c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span>Flower</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Area (Bottom) -->
+            <div class="player-zone my-zone" style="position: relative;">
+                <div id="my-timer" class="timer hidden" style="bottom: 15px; right: 15px;"></div>
+                <div class="cards-display" id="my-cards-list"></div>
+                <div class="player-info">
+                    <input type="text" id="my-name-display" class="player-name-input" value="You" placeholder="You">
+                    <div id="my-score-dots" class="score-dots"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fullscreen Draft Overlay -->
+        <div id="draft-area" class="overlay hidden">
+            <h2 class="draft-title">Select a superpower card:</h2>
+            <div id="draft-options" class="card-container"></div>
+            <div class="draft-actions">
+                <button id="hide-draft-btn" class="btn secondary">Hide (Peek at Game)</button>
+                <button id="skip-draft-btn" class="btn danger">Skip Draft</button>
+            </div>
+        </div>
+
+        <!-- Fullscreen Card Modal -->
+        <div id="card-modal" class="modal hidden" onclick="closeCardModal()">
+            <div class="modal-content pop-in" onclick="event.stopPropagation()">
+                <h2 id="modal-title"></h2>
+                <img id="modal-art" src="" alt="Art" />
+                <p id="modal-effect"></p>
+                <button class="close-btn" onclick="closeCardModal()">Close</button>
+            </div>
+        </div>
+
+        <!-- Future Drafts Modal -->
+        <div id="future-modal" class="overlay hidden" style="z-index: 6000;">
+            <div style="background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; text-align: center;">
+                <h2 id="future-modal-title">Future Drafts (+0 from now)</h2>
+                
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div>
+                        <h3>Opponent's Options</h3>
+                        <div id="future-enemy-options" class="card-container" style="justify-content: center;"></div>
+                    </div>
+                    <div>
+                        <h3>Your Options</h3>
+                        <div id="future-my-options" class="card-container" style="justify-content: center;"></div>
+                    </div>
+                </div>
+
+                <div class="draft-actions" style="justify-content: center;">
+                    <button id="future-prev-btn" class="btn secondary">Previous</button>
+                    <button id="future-close-btn" class="btn primary">Close</button>
+                    <button id="future-next-btn" class="btn secondary">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Game Modal -->
+        <div id="end-modal" class="modal hidden">
+            <div class="modal-content pop-in">
+                <h2>Game Over</h2>
+                <p id="end-message"></p>
+                <button id="view-board-btn" class="btn primary" style="margin-right: 10px;">View Board</button>
+                <button id="restart-btn" class="close-btn">Restart Match</button>
+            </div>
+        </div>
+
+        <!-- Timesis Modals -->
+        <div id="timesis-modal" class="overlay hidden" style="z-index: 7000; background: rgba(0,0,0,0.9);">
+            <h2 style="color: white; margin-bottom: 20px;">Timesis: Alter Your Past</h2>
+            <div id="timesis-history-container" class="history-container" style="background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 800px; margin-bottom: 20px; overflow-x: auto;"></div>
+            <button id="timesis-skip-btn" class="btn secondary">Skip (Do Nothing)</button>
+        </div>
+        <div id="timesis-redraft-modal" class="overlay hidden" style="z-index: 7100;">
+            <h2 class="draft-title">Change your past draft:</h2>
+            <div id="timesis-draft-options" class="card-container"></div>
+            <div class="draft-actions">
+                <button id="timesis-redraft-back-btn" class="btn secondary">Back</button>
+            </div>
+        </div>
+        <div id="timesis-remove-modal" class="overlay hidden" style="z-index: 7100;">
+            <h2 class="draft-title">Change your past move:</h2>
+            <div id="timesis-remove-queue" class="rps-queue" style="position: relative; left: auto; bottom: auto; margin-bottom: 20px; justify-content: center; height: 60px;"></div>
+            <div id="timesis-remove-area" style="display: flex; justify-content: center; width: 100%;">
+                <button class="rps-btn pop-in timesis-rps-btn" data-choice="rock"><svg viewBox="0 0 24 24"><path d="M 4,11.5 7,21 h 10 l 0.90313,-8.549666 -5.759486,-2.316928 0.889052,-2.0470199 2.61902,-1.5171386 -1.353541,2.5818917 5.695719,2.4802158 -0.900172,5.518491 L 22,12 18,5 15.5,3 9.5527273,4.8836364"/></svg><span>Rock</span></button>
+                <button class="rps-btn pop-in timesis-rps-btn" data-choice="paper"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>Paper</span></button>
+                <button class="rps-btn pop-in timesis-rps-btn" data-choice="scissors"><svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1l-9.64-9.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg><span>Scissors</span></button>
+                <button class="rps-btn pop-in timesis-rps-btn hidden" data-choice="flower"><svg viewBox="0 0 24 24"><path d="M18.7 12.4c-.28-.16-.57-.29-.86-.4.29-.11.58-.24.86-.4 1.92-1.11 2.99-3.12 2.14-5.16-.9-2.15-3.36-2.65-5.26-1.55-.28.16-.57.29-.86.4-.29-.11-.58-.24-.86-.4-1.92-1.11-4.28-.6-5.26 1.55-.85 2.04.22 4.05 2.14 5.16.28.16.57.29.86.4-.29.11-.58.24-.86.4-1.92 1.11-2.99 3.12-2.14 5.16.9 2.15 3.36 2.65 5.26 1.55.28-.16.57-.29.86-.4.29.11.58.24.86.4 1.92 1.11 4.28.6 5.26-1.55.85-2.04-.22-4.05-2.14-5.16zm-6.7 1.1c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span>Flower</span></button>
+            </div>
+            <div class="draft-actions" style="margin-top: 30px;">
+                <button id="timesis-remove-back-btn" class="btn secondary">Back</button>
+                <button id="timesis-remove-confirm-btn" class="btn primary hidden">Confirm Change</button>
+            </div>
+        </div>
+
+        <!-- Global Tooltip -->
+        <div id="global-tooltip" class="global-tooltip"></div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

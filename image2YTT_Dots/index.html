@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube YTT Subtitle Image Converter</title>
+
+  <style>
+    :root {
+      --bg-color: #0f0f0f;
+      --card-bg: #1f1f1f;
+      --accent: #ff0000;
+      --text: #ffffff;
+      --text-muted: #aaa;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    h1 {
+      margin-top: 0;
+      color: var(--accent);
+      font-size: 1.8rem;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    input, button {
+      margin-top: 0.5rem;
+      padding: 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #2a2a2a;
+      color: #fff;
+      font-size: 1rem;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    .preview-box {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1.5rem;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    canvas {
+      image-rendering: pixelated;
+      max-width: 250px;
+      border: 1px solid #444;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>YouTube Subtitle Image Converter</h1>
+  <p>Convert raster images into YouTube Timed Text (YTT XML format 3) subtitles.</p>
+
+  <div class="controls">
+    <label>
+      Select Image:
+      <input type="file" id="imageInput" accept="image/*">
+    </label>
+
+    <label>
+      Width (Pixels):
+      <input type="number" id="targetWidth" value="16" min="2" max="64">
+    </label>
+
+    <label>
+      Action:
+      <button id="convertBtn" disabled>Convert & Download YTT</button>
+    </label>
+  </div>
+
+  <div class="preview-box">
+    <div>
+      <p style="margin:0 0 0.5rem 0; font-size: 0.85rem; color: var(--text-muted);">Pixel Grid Preview</p>
+      <canvas id="previewCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+  const imageInput = document.getElementById('imageInput');
+  const targetWidthInput = document.getElementById('targetWidth');
+  const convertBtn = document.getElementById('convertBtn');
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let loadedImage = null;
+
+  imageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      convertBtn.disabled = false;
+      renderPreview();
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  targetWidthInput.addEventListener('input', () => {
+    if (loadedImage) renderPreview();
+  });
+
+  function renderPreview() {
+    const targetWidth = parseInt(targetWidthInput.value, 10) || 16;
+    const scale = targetWidth / loadedImage.width;
+    const targetHeight = Math.round(loadedImage.height * scale);
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    ctx.drawImage(loadedImage, 0, 0, targetWidth, targetHeight);
+  }
+
+  convertBtn.addEventListener('click', () => {
+    if (!loadedImage) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const imgData = ctx.getImageData(0, 0, width, height).data;
+
+    const colorMap = new Map();
+    const penDeclarations = [
+      '<pen id="0" fc="#000000" sz="0" fo="0" bo="0" />',
+      '<pen id="1" fc="#A0AAB4" sz="0" fo="0" bo="0" />'
+    ];
+    let penIdCounter = 2;
+
+    // Scan unique colors
+    for (let i = 0; i < imgData.length; i += 4) {
+      const r = imgData[i].toString(16).padStart(2, '0').toUpperCase();
+      const g = imgData[i+1].toString(16).padStart(2, '0').toUpperCase();
+      const b = imgData[i+2].toString(16).padStart(2, '0').toUpperCase();
+      const hex = `#${r}${g}${b}`;
+
+      if (!colorMap.has(hex)) {
+        colorMap.set(hex, penIdCounter);
+        penDeclarations.push(`<pen id="${penIdCounter}" fc="${hex}" sz="100" fo="255" bo="0" />`);
+        penIdCounter++;
+      }
+    }
+
+    penDeclarations.push('<pen id="6" fc="#A0AAB4" sz="140" fo="0" bo="0" />');
+    penDeclarations.push('<pen id="7" fc="#A0AAB4" sz="130" fo="0" bo="0" />');
+
+    const pTags = [];
+    let timestamp = 1;
+
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        const idx = (y * width + x) * 4;
+        const r = imgData[idx].toString(16).padStart(2, '0').toUpperCase();
+        const g = imgData[idx+1].toString(16).padStart(2, '0').toUpperCase();
+        const b = imgData[idx+2].toString(16).padStart(2, '0').toUpperCase();
+        const hex = `#${r}${g}${b}`;
+        const penId = colorMap.get(hex);
+
+        const xSpaces = " ".repeat(x);
+        let p = `  <p t="${timestamp}" d="99999" wp="1" ws="1">`;
+        p += `<s p="1">&#x200B;\n${xSpaces}</s>`;
+        p += `<s p="${penId}">...........</s>`;
+        p += `<s p="1">&#x200B;\n</s>`;
+
+        if (y % 3 === 1) {
+          p += `<s p="6">&#x200B;\n&#x200B;</s>`;
+        } else if (y % 3 === 2) {
+          p += `<s p="7">&#x200B;\n&#x200B;</s>`;
+        } else {
+          p += `<s p="1">&#x200B;\n&#x200B;\n&#x200B;\n&#x200B;</s>`;
+        }
+
+        p += `</p>`;
+        pTags.push(p);
+        timestamp++;
+      }
+    }
+
+    const xmlContent = `<?xml version="1.0" encoding="utf-8"?>
+<timedtext format="3">
+<head>
+<wp id="0" ap="7" ah="0" />
+<wp id="1" /><wp id="2" ap="7" av="99"/>
+<ws id="0" ju="2" sd="0" />
+<ws id="1" ju="2" sd="4" />
+${penDeclarations.join('\n')}
+</head>
+<body>
+${pTags.join('\n')}
+</body>
+</timedtext>`;
+
+    // Trigger file download
+    const blob = new Blob([xmlContent], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'youtube_subtitle_image.ytt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>

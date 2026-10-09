@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Image Processing Tool</h2>
+        
+        <div class="form-group">
+            <label for="startTime">Start (in ms):</label>
+            <input type="number" id="startTime" step="0.1" value="0">
+        </div>
+
+        <div class="form-group">
+            <label for="endTime">Duration (in ms):</label>
+            <input type="number" id="endTime" step="0.1" value="30000">
+        </div>
+
+        <div class="form-group">
+            <label for="height">Height:</label>
+            <input type="number" id="height" value="150">
+        </div>
+
+        <div class="form-group">
+            <label for="width">Width:</label>
+            <input type="number" id="width" value="70">
+        </div>
+        
+        <div class="form-group">
+            <label for="quantization">Quantization (colors per channel):</label>
+            <input type="number" id="quantization" value="256" min="2" max="256">
+        </div>
+        
+        <div class="form-group">
+            <label for="imageUpload">Upload Image:</label>
+            <input type="file" id="imageUpload" accept="image/*">
+        </div>
+
+        <button id="submitBtn">Submit</button>
+
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
